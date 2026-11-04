@@ -9,9 +9,11 @@ abstract class DatabaseService {
   // User Management
   Future<List<AppUser>> getCounsellors();
   Future<List<AppUser>> getAllUsers();
+  Stream<List<AppUser>> streamAllUsers();
   
   // Appointments / Counselling
   Future<List<Appointment>> getAppointments(String userId, String role);
+  Stream<List<Appointment>> streamAppointments(String userId, String role);
   Future<void> bookAppointment(Appointment appointment);
   Future<void> updateAppointmentStatus(
     String id, 

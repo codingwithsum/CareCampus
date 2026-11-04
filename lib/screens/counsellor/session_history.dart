@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../models/appointment_model.dart';
 import '../../services/services.dart';
 import '../../utils/theme.dart';
 import '../../utils/validators.dart';
+import '../../utils/app_alerts.dart';
 
 class SessionHistory extends StatefulWidget {
   const SessionHistory({super.key});
@@ -14,6 +16,7 @@ class SessionHistory extends StatefulWidget {
 class _SessionHistoryState extends State<SessionHistory> {
   List<Appointment> _completedAppointments = [];
   bool _isLoading = true;
+  StreamSubscription<List<Appointment>>? _appointmentsSub;
 
   final _notesController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -28,14 +31,21 @@ class _SessionHistoryState extends State<SessionHistory> {
     try {
       final user = await Services.auth.getCurrentUser();
       if (user != null) {
-        final list = await Services.db.getAppointments(user.uid, 'counsellor');
-        setState(() {
-          _completedAppointments = list.where((a) => a.status == 'completed').toList();
-          _isLoading = false;
+        _appointmentsSub?.cancel();
+        _appointmentsSub = Services.db
+            .streamAppointments(user.uid, 'counsellor')
+            .listen((list) {
+          if (mounted) {
+            setState(() {
+              _completedAppointments =
+                  list.where((a) => a.status == 'completed').toList();
+              _isLoading = false;
+            });
+          }
         });
       }
     } catch (_) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -44,14 +54,14 @@ class _SessionHistoryState extends State<SessionHistory> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogCtx) {
         return AlertDialog(
-          backgroundColor: AppTheme.white,
+          backgroundColor: AppTheme.cardBg(dialogCtx),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text(
+          title: Text(
             'Update Session Case Notes',
             style: TextStyle(
-              color: AppTheme.navyText,
+              color: AppTheme.textPrimary(dialogCtx),
               fontWeight: FontWeight.w800,
               fontSize: 18,
             ),
@@ -59,12 +69,12 @@ class _SessionHistoryState extends State<SessionHistory> {
           content: Form(
             key: _formKey,
             child: SizedBox(
-              width: MediaQuery.of(context).size.width.clamp(280.0, 500.0),
+              width: MediaQuery.of(dialogCtx).size.width.clamp(280.0, 500.0),
               child: SingleChildScrollView(
                 child: TextFormField(
                   controller: _notesController,
                   maxLines: 4,
-                  style: const TextStyle(color: AppTheme.navyText),
+                  style: TextStyle(color: AppTheme.textPrimary(dialogCtx)),
                   decoration: const InputDecoration(
                     labelText: 'Session Summary & Recommendations',
                   ),
@@ -75,7 +85,7 @@ class _SessionHistoryState extends State<SessionHistory> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(dialogCtx, false),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
@@ -101,17 +111,13 @@ class _SessionHistoryState extends State<SessionHistory> {
       _loadHistory();
       
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Session notes updated successfully.'),
-          backgroundColor: AppTheme.alertSuccess,
-        ),
-      );
+      AppAlerts.success(context, 'Session notes updated successfully.');
     }
   }
 
   @override
   void dispose() {
+    _appointmentsSub?.cancel();
     _notesController.dispose();
     super.dispose();
   }
@@ -124,7 +130,7 @@ class _SessionHistoryState extends State<SessionHistory> {
       ),
       body: Container(
         height: double.infinity,
-        decoration: AppTheme.backgroundGradient,
+        decoration: AppTheme.backgroundGradientOf(context),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: AppTheme.tealPrimary))
             : _completedAppointments.isEmpty
@@ -132,11 +138,11 @@ class _SessionHistoryState extends State<SessionHistory> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.history_rounded, size: 64, color: AppTheme.textLow.withValues(alpha: 0.5)),
+                        Icon(Icons.history_rounded, size: 64, color: AppTheme.textMuted(context).withValues(alpha: 0.5)),
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           'No completed sessions logged.',
-                          style: TextStyle(color: AppTheme.textLow),
+                          style: TextStyle(color: AppTheme.textMuted(context)),
                         ),
                       ],
                     ),
@@ -149,7 +155,7 @@ class _SessionHistoryState extends State<SessionHistory> {
                       final appt = _completedAppointments[index];
                       return Container(
                         padding: const EdgeInsets.all(20),
-                        decoration: AppTheme.glassCardDecoration(),
+                        decoration: AppTheme.glassCardDecorationOf(context),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

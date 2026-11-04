@@ -11,6 +11,7 @@ import 'manage_resources_admin.dart';
 import 'chatbot_reports.dart';
 import 'mental_health_analytics.dart';
 import '../../widgets/user_profile_dialog.dart';
+import '../../widgets/logout_confirmation_dialog.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -55,12 +56,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  Future<void> _confirmSignOut() async {
+    final confirmed = await showLogoutConfirmationDialog(context);
+    if (confirmed && mounted) {
+      _secureSignOut();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: AppTheme.skyWhite,
-        body: Center(
+      return Scaffold(
+        backgroundColor: AppTheme.scaffoldBg(context),
+        body: const Center(
           child: CircularProgressIndicator(color: AppTheme.tealBlue),
         ),
       );
@@ -68,9 +76,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 700;
+    final isDark = AppTheme.isDark(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.skyWhite,
+      backgroundColor: AppTheme.scaffoldBg(context),
       appBar: _buildAppBar(),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -87,7 +96,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               style: GoogleFonts.nunito(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: AppTheme.navyText,
+                color: AppTheme.textPrimary(context),
               ),
             ),
             const SizedBox(height: 14),
@@ -112,7 +121,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       desc: 'Register Student & Counsellor accounts.',
                       icon: Icons.manage_accounts_rounded,
                       iconColor: AppTheme.tealBlue,
-                      iconBg: const Color(0xFFE3F6FA),
+                      iconBg: isDark
+                          ? AppTheme.tealBlue.withValues(alpha: 0.15)
+                          : const Color(0xFFE3F6FA),
                       onTap: () => Navigator.push(context,
                           MaterialPageRoute(builder: (_) => const ManageUsers())),
                     ),
@@ -121,7 +132,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       desc: 'View and remove inappropriate community posts.',
                       icon: Icons.security_rounded,
                       iconColor: AppTheme.alertRed,
-                      iconBg: const Color(0xFFFFF3F3),
+                      iconBg: isDark
+                          ? AppTheme.alertRed.withValues(alpha: 0.15)
+                          : const Color(0xFFFFF3F3),
                       onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -132,7 +145,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       desc: 'View appointment bookings & history.',
                       icon: Icons.assignment_rounded,
                       iconColor: const Color(0xFF9B59B6),
-                      iconBg: const Color(0xFFF4EBF9),
+                      iconBg: isDark
+                          ? const Color(0xFF9B59B6).withValues(alpha: 0.15)
+                          : const Color(0xFFF4EBF9),
                       onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -143,7 +158,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       desc: 'Upload and publish student resources.',
                       icon: Icons.auto_stories_rounded,
                       iconColor: AppTheme.mintGreen,
-                      iconBg: const Color(0xFFE8F8F0),
+                      iconBg: isDark
+                          ? AppTheme.mintGreen.withValues(alpha: 0.15)
+                          : const Color(0xFFE8F8F0),
                       onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -154,7 +171,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       desc: 'Session counts & risk patterns.',
                       icon: Icons.smart_toy_rounded,
                       iconColor: const Color(0xFF4A90E2),
-                      iconBg: const Color(0xFFEAF3FF),
+                      iconBg: isDark
+                          ? const Color(0xFF4A90E2).withValues(alpha: 0.15)
+                          : const Color(0xFFEAF3FF),
                       onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -165,7 +184,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       desc: 'PHQ-9, GAD-7, GHQ-12 analytics.',
                       icon: Icons.analytics_rounded,
                       iconColor: AppTheme.alertGreen,
-                      iconBg: const Color(0xFFE8F8F0),
+                      iconBg: isDark
+                          ? AppTheme.alertGreen.withValues(alpha: 0.15)
+                          : const Color(0xFFE8F8F0),
                       onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -184,7 +205,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: AppTheme.white,
+      backgroundColor: AppTheme.cardBg(context),
       elevation: 0,
       title: Row(
         children: [
@@ -233,7 +254,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 showUserProfileDialog(
                   context,
                   user: _user!,
-                  onLogout: _secureSignOut,
+                  onLogout: _confirmSignOut,
                 );
               }
             },
@@ -249,7 +270,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               child: CircleAvatar(
                 radius: 16,
-                backgroundColor: const Color(0xFFFFF8E1),
+                backgroundColor: AppTheme.isDark(context)
+                    ? AppTheme.alertAmber.withValues(alpha: 0.2)
+                    : const Color(0xFFFFF8E1),
                 child: Text(
                   (_user?.name ?? 'A').substring(0, 1).toUpperCase(),
                   style: GoogleFonts.nunito(
@@ -266,12 +289,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
           tooltip: 'Logout',
           icon: const Icon(Icons.logout_rounded,
               color: AppTheme.alertRed, size: 20),
-          onPressed: _secureSignOut,
+          onPressed: _confirmSignOut,
         ),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: AppTheme.iceBlue),
+        child: Container(height: 1, color: AppTheme.borderColor(context)),
       ),
     );
   }
@@ -387,6 +410,7 @@ class _AdminCardState extends State<_AdminCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -396,21 +420,23 @@ class _AdminCardState extends State<_AdminCard> {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.white,
+            color: AppTheme.cardBg(context),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: _hovered
                   ? widget.iconColor.withValues(alpha: 0.4)
-                  : AppTheme.iceBlue,
+                  : AppTheme.borderColor(context),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.iconColor
-                    .withValues(alpha: _hovered ? 0.15 : 0.06),
-                blurRadius: _hovered ? 20 : 12,
-                offset: const Offset(0, 6),
-              ),
-            ],
+            boxShadow: isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: widget.iconColor
+                          .withValues(alpha: _hovered ? 0.15 : 0.06),
+                      blurRadius: _hovered ? 20 : 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -432,7 +458,7 @@ class _AdminCardState extends State<_AdminCard> {
                     style: GoogleFonts.nunito(
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
-                      color: AppTheme.navyText,
+                      color: AppTheme.textPrimary(context),
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -440,7 +466,7 @@ class _AdminCardState extends State<_AdminCard> {
                     widget.desc,
                     style: GoogleFonts.nunito(
                       fontSize: 11,
-                      color: AppTheme.mutedText,
+                      color: AppTheme.textMuted(context),
                       fontWeight: FontWeight.w500,
                       height: 1.3,
                     ),

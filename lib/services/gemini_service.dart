@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
@@ -80,13 +81,17 @@ class GeminiService {
   };
 
   /// Retrieve the active API key:
-  /// 1. SharedPreferences (in-app configuration override)
-  /// 2. AppConfig.geminiApiKey (compile-time --dart-define=GEMINI_API_KEY=...)
+  /// 1. SharedPreferences (in-app manual override)
+  /// 2. AppConfig.geminiApiKey (default embedded key or --dart-define=GEMINI_API_KEY=...)
+  /// 3. Firestore Remote Config (app_config/gemini)
   Future<String?> getApiKey() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final storedKey = prefs.getString(_prefApiKey);
-      if (storedKey != null && storedKey.trim().isNotEmpty) {
+      if (prefs.containsKey(_prefApiKey)) {
+        final storedKey = prefs.getString(_prefApiKey);
+        if (storedKey == null || storedKey.trim().isEmpty) {
+          return null; // explicitly cleared by user in settings
+        }
         return storedKey.trim();
       }
     } catch (_) {}
@@ -95,6 +100,19 @@ class GeminiService {
     if (configKey.isNotEmpty) {
       return configKey;
     }
+
+    // Check remote Firestore config so APK works without rebuilding
+    try {
+      if (AppConfig.useFirebase) {
+        final doc = await FirebaseFirestore.instance.collection('app_config').doc('gemini').get();
+        if (doc.exists && doc.data() != null) {
+          final remoteKey = doc.data()!['apiKey'] as String?;
+          if (remoteKey != null && remoteKey.trim().isNotEmpty) {
+            return remoteKey.trim();
+          }
+        }
+      }
+    } catch (_) {}
 
     return null;
   }
@@ -109,7 +127,7 @@ class GeminiService {
   Future<void> saveApiKey(String key) async {
     final prefs = await SharedPreferences.getInstance();
     if (key.trim().isEmpty) {
-      await prefs.remove(_prefApiKey);
+      await prefs.setString(_prefApiKey, '');
     } else {
       await prefs.setString(_prefApiKey, key.trim());
     }
@@ -121,7 +139,7 @@ class GeminiService {
   /// Remove user's Gemini API key from local storage
   Future<void> clearApiKey() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_prefApiKey);
+    await prefs.setString(_prefApiKey, '');
     _model = null;
     _chatSession = null;
     _activeApiKey = null;

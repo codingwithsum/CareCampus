@@ -10,6 +10,8 @@ import '../../services/services.dart';
 import '../../services/gemini_service.dart';
 import '../../utils/theme.dart';
 import '../../utils/security.dart';
+import '../../utils/app_alerts.dart';
+import '../../utils/url_helper.dart';
 import 'book_counsellor.dart';
 
 class ChatbotChat extends StatefulWidget {
@@ -241,30 +243,12 @@ class _ChatbotChatState extends State<ChatbotChat> {
       }
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Helpline number: $number. Please dial directly.'),
-          backgroundColor: AppTheme.alertSevere,
-        ),
-      );
+      AppAlerts.warning(context, 'Helpline number: $number. Please dial directly.');
     }
   }
 
   Future<void> _openResourceUrl(String url) async {
-    final uri = Uri.parse(url);
-    try {
-      if (await launcher.canLaunchUrl(uri)) {
-        await launcher.launchUrl(uri, mode: launcher.LaunchMode.externalApplication);
-      }
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not open resource link: $url'),
-          backgroundColor: AppTheme.alertSevere,
-        ),
-      );
-    }
+    await UrlHelper.openResourceUrl(context, url);
   }
 
   void _showBoxBreathingModal() {
@@ -493,14 +477,11 @@ class _ChatbotChatState extends State<ChatbotChat> {
             if (currentKey != null && currentKey.isNotEmpty)
               TextButton(
                 onPressed: () async {
-                  final messenger = ScaffoldMessenger.of(context);
                   await _gemini.clearApiKey();
                   if (!mounted) return;
                   setState(() => _hasApiKey = false);
                   if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-                  messenger.showSnackBar(
-                    const SnackBar(content: Text('API Key cleared. Switched to offline mode.')),
-                  );
+                  AppAlerts.info(context, 'API Key cleared. Switched to offline mode.');
                 },
                 child: const Text('Clear Key', style: TextStyle(color: AppTheme.alertRed)),
               ),
@@ -514,7 +495,6 @@ class _ChatbotChatState extends State<ChatbotChat> {
                 foregroundColor: Colors.white,
               ),
               onPressed: () async {
-                final messenger = ScaffoldMessenger.of(context);
                 final key = controller.text.trim();
                 await _gemini.saveApiKey(key);
                 await _gemini.setModelName(selectedModel);
@@ -532,15 +512,11 @@ class _ChatbotChatState extends State<ChatbotChat> {
                   _activeModel = selectedModel;
                 });
                 if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-                messenger.showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      key.isNotEmpty
-                          ? 'Gemini API key saved! $selectedModel active.'
-                          : 'Empty key. Running in offline rule-based mode.',
-                    ),
-                    backgroundColor: AppTheme.alertSuccess,
-                  ),
+                AppAlerts.success(
+                  context,
+                  key.isNotEmpty
+                      ? 'Gemini API key saved! $selectedModel active.'
+                      : 'Empty key. Running in offline rule-based mode.',
                 );
               },
               child: const Text('Save & Apply'),
@@ -583,7 +559,7 @@ class _ChatbotChatState extends State<ChatbotChat> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.skyWhite,
+      backgroundColor: AppTheme.scaffoldBg(context),
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -636,14 +612,14 @@ class _ChatbotChatState extends State<ChatbotChat> {
           ),
           IconButton(
             tooltip: 'Restart Conversation',
-            icon: const Icon(Icons.refresh_rounded, color: AppTheme.slateText, size: 22),
+            icon: Icon(Icons.refresh_rounded, color: AppTheme.textSecondary(context), size: 22),
             padding: const EdgeInsets.symmetric(horizontal: 4),
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             onPressed: _restartChat,
           ),
           IconButton(
             tooltip: 'Gemini Settings',
-            icon: const Icon(Icons.settings_outlined, color: AppTheme.slateText, size: 22),
+            icon: Icon(Icons.settings_outlined, color: AppTheme.textSecondary(context), size: 22),
             padding: const EdgeInsets.symmetric(horizontal: 4),
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             onPressed: _showSettingsDialog,
@@ -653,7 +629,7 @@ class _ChatbotChatState extends State<ChatbotChat> {
       ),
       body: Container(
         height: double.infinity,
-        decoration: AppTheme.backgroundGradient,
+        decoration: AppTheme.backgroundGradientOf(context),
         child: Column(
           children: [
             // ── Prominent AI Activation Banner if No Key is Set ─────────
@@ -775,7 +751,7 @@ class _ChatbotChatState extends State<ChatbotChat> {
                                 ? AppTheme.tealBlue.withValues(alpha: 0.15)
                                 : (isCrisis
                                     ? AppTheme.alertSevere.withValues(alpha: 0.12)
-                                    : AppTheme.slateCard.withValues(alpha: 0.9)),
+                                    : AppTheme.cardBg(context)),
                             borderRadius: BorderRadius.only(
                               topLeft: const Radius.circular(16),
                               topRight: const Radius.circular(16),
@@ -787,7 +763,7 @@ class _ChatbotChatState extends State<ChatbotChat> {
                                   ? AppTheme.tealBlue.withValues(alpha: 0.3)
                                   : (isCrisis
                                       ? AppTheme.alertSevere.withValues(alpha: 0.3)
-                                      : Colors.white.withValues(alpha: 0.12)),
+                                      : AppTheme.borderColor(context)),
                             ),
                           ),
                           child: Column(
@@ -796,7 +772,7 @@ class _ChatbotChatState extends State<ChatbotChat> {
                               Text(
                                 msg['text'] as String,
                                 style: TextStyle(
-                                  color: AppTheme.navyText,
+                                  color: AppTheme.textPrimary(context),
                                   height: 1.45,
                                   fontSize: 14,
                                   fontWeight: isUser ? FontWeight.w500 : FontWeight.normal,
@@ -908,7 +884,7 @@ class _ChatbotChatState extends State<ChatbotChat> {
             // ── Message Input Bar ────────────────────────────────────────
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              color: AppTheme.white.withValues(alpha: 0.9),
+              color: AppTheme.cardBg(context),
               child: Row(
                 children: [
                   Expanded(
@@ -916,20 +892,20 @@ class _ChatbotChatState extends State<ChatbotChat> {
                       controller: _textController,
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => _sendMessage(),
-                      style: const TextStyle(color: AppTheme.navyText, fontSize: 14),
+                      style: TextStyle(color: AppTheme.textPrimary(context), fontSize: 14),
                       decoration: InputDecoration(
                         hintText: 'Share what is on your mind...',
-                        hintStyle: const TextStyle(color: AppTheme.mutedText, fontSize: 13),
+                        hintStyle: TextStyle(color: AppTheme.textMuted(context), fontSize: 13),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        fillColor: AppTheme.skyWhite,
+                        fillColor: AppTheme.cardBgAlt(context),
                         filled: true,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide(color: AppTheme.iceBlue.withValues(alpha: 0.6)),
+                          borderSide: BorderSide(color: AppTheme.borderColor(context)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide(color: AppTheme.iceBlue.withValues(alpha: 0.6)),
+                          borderSide: BorderSide(color: AppTheme.borderColor(context)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
@@ -979,14 +955,14 @@ class _ChatbotChatState extends State<ChatbotChat> {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
         itemCount: chips.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        separatorBuilder: (_, i) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
           final item = chips[index];
           final label = item['label'] as String;
           return ActionChip(
-            label: Text(label, style: const TextStyle(fontSize: 12, color: AppTheme.navyText)),
-            backgroundColor: AppTheme.white.withValues(alpha: 0.8),
-            side: BorderSide(color: AppTheme.iceBlue.withValues(alpha: 0.8)),
+            label: Text(label, style: TextStyle(fontSize: 12, color: AppTheme.textPrimary(context))),
+            backgroundColor: AppTheme.cardBg(context),
+            side: BorderSide(color: AppTheme.borderColor(context)),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             onPressed: () {
               if (item['action'] != null) {

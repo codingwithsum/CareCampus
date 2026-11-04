@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/resource_model.dart';
 import '../../services/services.dart';
 import '../../utils/theme.dart';
-import '../../utils/validators.dart';
-import 'package:url_launcher/url_launcher.dart' as launcher;
+import '../../utils/url_helper.dart';
 
 class ResourceHub extends StatefulWidget {
   const ResourceHub({super.key});
@@ -17,7 +16,7 @@ class _ResourceHubState extends State<ResourceHub> with SingleTickerProviderStat
   List<Resource> _resources = [];
   bool _isLoading = true;
 
-  final List<String> _categories = ['All', 'Guide', 'Video', 'Audio', 'PDF'];
+  final List<String> _categories = ['All', 'Video', 'Audio', 'PDF'];
 
   @override
   void initState() {
@@ -39,55 +38,7 @@ class _ResourceHubState extends State<ResourceHub> with SingleTickerProviderStat
   }
 
   Future<void> _launchUrl(String url) async {
-    final cleanUrl = Validators.ensureHttpsPrefix(url.trim());
-
-    // Check if it's a YouTube link to open directly in the YouTube app
-    final ytRegex = RegExp(
-      r'^(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})',
-      caseSensitive: false,
-    );
-    final ytMatch = ytRegex.firstMatch(cleanUrl);
-
-    if (ytMatch != null && ytMatch.groupCount >= 1) {
-      final videoId = ytMatch.group(1);
-      if (videoId != null && videoId.isNotEmpty) {
-        // Try native YouTube app direct intent first (vnd.youtube:<id>)
-        final appUri = Uri.parse('vnd.youtube:$videoId');
-        try {
-          if (await launcher.canLaunchUrl(appUri)) {
-            await launcher.launchUrl(appUri, mode: launcher.LaunchMode.externalApplication);
-            return;
-          }
-        } catch (_) {}
-      }
-    }
-
-    final uri = Uri.parse(cleanUrl);
-    try {
-      bool launched = false;
-      try {
-        launched = await launcher.launchUrl(
-          uri,
-          mode: launcher.LaunchMode.externalNonBrowserApplication,
-        );
-      } catch (_) {}
-
-      if (!launched) {
-        if (await launcher.canLaunchUrl(uri)) {
-          await launcher.launchUrl(uri, mode: launcher.LaunchMode.externalApplication);
-        } else {
-          throw 'Could not launch $cleanUrl';
-        }
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to open link: $url'),
-          backgroundColor: AppTheme.alertSevere,
-        ),
-      );
-    }
+    await UrlHelper.openResourceUrl(context, url);
   }
 
   @override
@@ -113,7 +64,7 @@ class _ResourceHubState extends State<ResourceHub> with SingleTickerProviderStat
       ),
       body: Container(
         height: double.infinity,
-        decoration: AppTheme.backgroundGradient,
+        decoration: AppTheme.backgroundGradientOf(context),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: AppTheme.tealPrimary))
             : TabBarView(
@@ -128,11 +79,11 @@ class _ResourceHubState extends State<ResourceHub> with SingleTickerProviderStat
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.library_books_outlined, size: 64, color: AppTheme.textLow.withValues(alpha: 0.5)),
+                          Icon(Icons.library_books_outlined, size: 64, color: AppTheme.textMuted(context).withValues(alpha: 0.5)),
                           const SizedBox(height: 16),
                           Text(
                             'No resources found for "$cat".',
-                            style: const TextStyle(color: AppTheme.textLow),
+                            style: TextStyle(color: AppTheme.textMuted(context)),
                           ),
                         ],
                       ),
@@ -161,7 +112,7 @@ class _ResourceHubState extends State<ResourceHub> with SingleTickerProviderStat
 
                       return Container(
                         padding: const EdgeInsets.all(20),
-                        decoration: AppTheme.glassCardDecoration(),
+                        decoration: AppTheme.glassCardDecorationOf(context),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -188,7 +139,7 @@ class _ResourceHubState extends State<ResourceHub> with SingleTickerProviderStat
                                       const SizedBox(height: 4),
                                       Text(
                                         'Uploaded by ${res.uploadedByName}',
-                                        style: const TextStyle(color: AppTheme.textLow, fontSize: 11),
+                                        style: TextStyle(color: AppTheme.textMuted(context), fontSize: 11),
                                       ),
                                     ],
                                   ),
@@ -198,9 +149,9 @@ class _ResourceHubState extends State<ResourceHub> with SingleTickerProviderStat
                             const SizedBox(height: 12),
                             Text(
                               res.description,
-                              style: const TextStyle(color: AppTheme.textMedium, height: 1.4),
+                              style: TextStyle(color: AppTheme.textSecondary(context), height: 1.4),
                             ),
-                            const Divider(height: 24, color: Colors.white10),
+                            Divider(height: 24, color: AppTheme.borderColor(context)),
                             Row(
                               children: [
                                 Expanded(

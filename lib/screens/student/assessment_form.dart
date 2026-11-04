@@ -232,7 +232,7 @@ class _AssessmentFormState extends State<AssessmentForm> {
       ),
       body: Container(
         height: double.infinity,
-        decoration: AppTheme.backgroundGradient,
+        decoration: AppTheme.backgroundGradientOf(context),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: _selectedTest == null
@@ -290,7 +290,7 @@ class _AssessmentFormState extends State<AssessmentForm> {
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(20),
-        decoration: AppTheme.glassCardDecoration(),
+        decoration: AppTheme.glassCardDecorationOf(context),
         child: Row(
           children: [
             Expanded(
@@ -362,7 +362,7 @@ class _AssessmentFormState extends State<AssessmentForm> {
         // Question Card
         Container(
           padding: const EdgeInsets.all(28),
-          decoration: AppTheme.glassCardDecoration(isBorderAccent: true),
+          decoration: AppTheme.glassCardDecorationOf(context, isBorderAccent: true),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -373,8 +373,8 @@ class _AssessmentFormState extends State<AssessmentForm> {
               const SizedBox(height: 16),
               Text(
                 questions[_currentQuestionIndex],
-                style: const TextStyle(
-                  color: AppTheme.textHigh,
+                style: TextStyle(
+                  color: AppTheme.textPrimary(context),
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
                   height: 1.5,
@@ -391,11 +391,11 @@ class _AssessmentFormState extends State<AssessmentForm> {
             padding: const EdgeInsets.only(bottom: 12),
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.slateCard,
-                foregroundColor: AppTheme.textHigh,
+                backgroundColor: AppTheme.cardBgAlt(context),
+                foregroundColor: AppTheme.textPrimary(context),
                 padding: const EdgeInsets.all(18),
                 alignment: Alignment.centerLeft,
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+                side: BorderSide(color: AppTheme.borderColor(context)),
               ),
               onPressed: () => _answerQuestion(idx),
               child: Text(_currentOptions[idx]),
@@ -421,7 +421,7 @@ class _AssessmentFormState extends State<AssessmentForm> {
         // Result Score Card
         Container(
           padding: const EdgeInsets.all(32),
-          decoration: AppTheme.glassCardDecoration(),
+          decoration: AppTheme.glassCardDecorationOf(context),
           child: Column(
             children: [
               Text(

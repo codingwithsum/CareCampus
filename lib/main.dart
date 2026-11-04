@@ -39,6 +39,8 @@ class CareCampusApp extends StatelessWidget {
       title: AppConfig.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.system,
       home: home ?? const AuthCheckScreen(),
     );
   }
@@ -53,9 +55,9 @@ class AuthCheckScreen extends StatelessWidget {
       stream: Services.auth.onAuthStateChanged,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            backgroundColor: AppTheme.skyWhite,
-            body: Center(
+          return Scaffold(
+            backgroundColor: AppTheme.scaffoldBg(context),
+            body: const Center(
               child: SizedBox(
                 width: 28,
                 height: 28,

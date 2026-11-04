@@ -6,6 +6,7 @@ import 'package:carecampus/models/user_model.dart';
 import 'package:carecampus/models/appointment_model.dart';
 import 'package:carecampus/services/services.dart';
 import 'package:carecampus/utils/theme.dart';
+import 'package:carecampus/utils/app_alerts.dart';
 import 'package:carecampus/widgets/user_profile_dialog.dart';
 import 'package:carecampus/screens/counsellor/appointment_requests.dart';
 import 'package:carecampus/screens/student/student_dashboard.dart';
@@ -296,5 +297,108 @@ void main() {
     expect(find.text('Jane Doe'), findsWidgets);
     expect(find.text('Anonymous Request'), findsNothing);
     expect(find.text('Reason: Assessment referral: PHQ-9 score 18 (Moderately Severe)'), findsOneWidget);
+  });
+
+  testWidgets('Student dashboard updates appointment status in real-time when counsellor accepts/rejects/completes', (WidgetTester tester) async {
+    await Services.auth.login('student@carecampus.org', 'StudentPassword@123');
+    final student = await Services.auth.getCurrentUser();
+
+    final testAppt = Appointment(
+      id: 'apt-realtime-test',
+      studentId: student!.uid,
+      studentPseudonym: 'Jane Doe',
+      counsellorId: 'cns-1',
+      counsellorName: 'Dr. Sarah Jenkins',
+      status: 'pending',
+      bookingDate: DateTime.now(),
+      isAnonymous: false,
+    );
+    await Services.db.bookAppointment(testAppt);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: const StudentDashboard(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify initial status is PENDING
+    expect(find.text('PENDING'), findsWidgets);
+
+    // Counsellor accepts appointment with scheduled time
+    await Services.db.updateAppointmentStatus(
+      'apt-realtime-test',
+      'accepted',
+      scheduledDateTime: 'Friday, 10:00 AM',
+    );
+    await tester.pumpAndSettle();
+
+    // Verify student screen reflects ACCEPTED in real-time
+    expect(find.text('ACCEPTED'), findsWidgets);
+    expect(find.textContaining('Friday, 10:00 AM'), findsOneWidget);
+
+    // Counsellor marks session completed with notes
+    await Services.db.updateAppointmentStatus(
+      'apt-realtime-test',
+      'completed',
+      sessionNotes: 'Student showed great progress.',
+    );
+    await tester.pumpAndSettle();
+
+    // Verify student screen reflects COMPLETED in real-time
+    expect(find.text('COMPLETED'), findsWidgets);
+    expect(find.textContaining('Student showed great progress.'), findsOneWidget);
+
+    // Counsellor marks appointment as rejected
+    await Services.db.updateAppointmentStatus(
+      'apt-realtime-test',
+      'rejected',
+    );
+    await tester.pumpAndSettle();
+
+    // Verify student screen reflects REJECTED in real-time
+    expect(find.text('REJECTED'), findsWidgets);
+  });
+
+  testWidgets('AppAlerts renders floating footer banner and popup dialog', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Column(
+              children: [
+                ElevatedButton(
+                  onPressed: () => AppAlerts.error(context, 'Please enter a valid email address.'),
+                  child: const Text('Show Error'),
+                ),
+                ElevatedButton(
+                  onPressed: () => AppAlerts.showPopupDialog(
+                    context,
+                    title: 'Account Alert',
+                    message: 'Your account has been updated.',
+                    type: AlertType.success,
+                  ),
+                  child: const Text('Show Popup'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Tap Show Error -> verifies footer banner
+    await tester.tap(find.text('Show Error'));
+    await tester.pump();
+    expect(find.text('Please enter a valid email address.'), findsOneWidget);
+
+    // Tap Show Popup -> verifies popup dialog
+    await tester.tap(find.text('Show Popup'));
+    await tester.pumpAndSettle();
+    expect(find.text('Account Alert'), findsOneWidget);
+    expect(find.text('Your account has been updated.'), findsOneWidget);
+    expect(find.text('OK'), findsOneWidget);
   });
 }

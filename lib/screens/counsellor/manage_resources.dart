@@ -3,6 +3,8 @@ import '../../models/resource_model.dart';
 import '../../services/services.dart';
 import '../../utils/theme.dart';
 import '../../utils/validators.dart';
+import '../../utils/app_alerts.dart';
+import '../../utils/url_helper.dart';
 
 class ManageResources extends StatefulWidget {
   const ManageResources({super.key});
@@ -19,7 +21,7 @@ class _ManageResourcesState extends State<ManageResources> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
   final _urlController = TextEditingController();
-  String _selectedCategory = 'Guide';
+  String _selectedCategory = 'Video';
 
   @override
   void initState() {
@@ -44,11 +46,30 @@ class _ManageResourcesState extends State<ManageResources> {
   }
 
   Future<void> _saveResource({Resource? existingResource}) async {
+    final titleErr = Validators.validateRequired(_titleController.text, 'Title', maxLen: 80);
+    if (titleErr != null) {
+      _formKey.currentState?.validate();
+      AppAlerts.error(context, titleErr);
+      return;
+    }
+    final descErr = Validators.validateRequired(_descController.text, 'Description', maxLen: 300);
+    if (descErr != null) {
+      _formKey.currentState?.validate();
+      AppAlerts.error(context, descErr);
+      return;
+    }
+    final urlErr = Validators.validateUrl(_urlController.text);
+    if (urlErr != null) {
+      _formKey.currentState?.validate();
+      AppAlerts.error(context, urlErr);
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
 
     final title = Validators.sanitizeText(_titleController.text);
     final desc = Validators.sanitizeText(_descController.text);
-    final url = Validators.ensureHttpsPrefix(_urlController.text.trim());
+    final unwrapped = UrlHelper.unwrapUrl(_urlController.text.trim());
+    final url = Validators.ensureHttpsPrefix(unwrapped);
 
     try {
       final user = await Services.auth.getCurrentUser();
@@ -86,30 +107,26 @@ class _ManageResourcesState extends State<ManageResources> {
       Navigator.pop(context);
       _loadResources();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Resource published successfully!'), backgroundColor: AppTheme.alertSuccess),
-      );
+      AppAlerts.success(context, 'Resource published successfully!');
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save: ${e.toString()}'), backgroundColor: AppTheme.alertSevere),
-      );
+      AppAlerts.error(context, 'Failed to save: ${e.toString()}');
     }
   }
 
   Future<void> _deleteResource(String id) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.white,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: AppTheme.cardBg(dialogCtx),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete Resource', style: TextStyle(color: AppTheme.navyText, fontWeight: FontWeight.w800)),
-        content: const Text('Are you sure you want to permanently delete this resource?', style: TextStyle(color: AppTheme.slateText)),
+        title: Text('Delete Resource', style: TextStyle(color: AppTheme.textPrimary(dialogCtx), fontWeight: FontWeight.w800)),
+        content: Text('Are you sure you want to permanently delete this resource?', style: TextStyle(color: AppTheme.textSecondary(dialogCtx))),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(dialogCtx, false), child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.alertSevere, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(context, true), 
+            onPressed: () => Navigator.pop(dialogCtx, true), 
             child: const Text('Delete'),
           ),
         ],
@@ -119,6 +136,7 @@ class _ManageResourcesState extends State<ManageResources> {
     if (confirmed == true) {
       await Services.db.deleteResource(id);
       _loadResources();
+      if (mounted) AppAlerts.info(context, 'Resource deleted successfully.');
     }
   }
 
@@ -127,12 +145,12 @@ class _ManageResourcesState extends State<ManageResources> {
       _titleController.text = resource.title;
       _descController.text = resource.description;
       _urlController.text = resource.url;
-      _selectedCategory = resource.category;
+      _selectedCategory = resource.category == 'Guide' ? 'PDF' : resource.category;
     } else {
       _titleController.clear();
       _descController.clear();
       _urlController.clear();
-      _selectedCategory = 'Guide';
+      _selectedCategory = 'Video';
     }
 
     showDialog(
@@ -165,7 +183,7 @@ class _ManageResourcesState extends State<ManageResources> {
                           value: _selectedCategory,
                           dropdownColor: AppTheme.white,
                           decoration: const InputDecoration(labelText: 'Resource Category'),
-                          items: ['Guide', 'Video', 'Audio', 'PDF'].map((cat) {
+                          items: ['Video', 'Audio', 'PDF'].map((cat) {
                             return DropdownMenuItem<String>(
                               value: cat,
                               child: Text(cat, style: const TextStyle(color: AppTheme.navyText)),
@@ -242,7 +260,7 @@ class _ManageResourcesState extends State<ManageResources> {
       ),
       body: Container(
         height: double.infinity,
-        decoration: AppTheme.backgroundGradient,
+        decoration: AppTheme.backgroundGradientOf(context),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: AppTheme.tealPrimary))
             : _myResources.isEmpty
@@ -250,11 +268,11 @@ class _ManageResourcesState extends State<ManageResources> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.library_add_rounded, size: 64, color: AppTheme.textLow.withValues(alpha: 0.5)),
+                        Icon(Icons.library_add_rounded, size: 64, color: AppTheme.textMuted(context).withValues(alpha: 0.5)),
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           'You have not uploaded any wellness resources yet.',
-                          style: TextStyle(color: AppTheme.textLow),
+                          style: TextStyle(color: AppTheme.textMuted(context)),
                         ),
                       ],
                     ),
@@ -267,7 +285,7 @@ class _ManageResourcesState extends State<ManageResources> {
                       final res = _myResources[index];
                       return Container(
                         padding: const EdgeInsets.all(16),
-                        decoration: AppTheme.glassCardDecoration(),
+                        decoration: AppTheme.glassCardDecorationOf(context),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

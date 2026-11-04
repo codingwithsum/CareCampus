@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../models/user_model.dart';
 import '../../services/services.dart';
 import '../../utils/theme.dart';
 import '../../utils/validators.dart';
+import '../../utils/app_alerts.dart';
 
 class ManageUsers extends StatefulWidget {
   const ManageUsers({super.key});
@@ -23,6 +25,7 @@ class _ManageUsersState extends State<ManageUsers> {
   bool _isLoading = true;
   bool _isSubmitting = false;
   bool _obscureNewPassword = true;
+  StreamSubscription<List<AppUser>>? _usersSub;
 
   @override
   void initState() {
@@ -30,32 +33,62 @@ class _ManageUsersState extends State<ManageUsers> {
     _loadUsers();
   }
 
+  @override
+  void dispose() {
+    _usersSub?.cancel();
+    _nameController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  /// Sort: newest created first (ascending = newest on top)
+  List<AppUser> _sortUsers(List<AppUser> list) {
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
   Future<void> _loadUsers() async {
     try {
-      final list = await Services.db.getAllUsers();
-      // Sort users: admins first, then counsellors, then students; within each role by createdAt (newest first)
-      list.sort((a, b) {
-        const roleOrder = {'admin': 0, 'counsellor': 1, 'student': 2};
-        final roleCmp = (roleOrder[a.role] ?? 3).compareTo(roleOrder[b.role] ?? 3);
-        if (roleCmp != 0) return roleCmp;
-        return b.createdAt.compareTo(a.createdAt);
-      });
-      setState(() {
-        _allUsers = list;
-        _isLoading = false;
+      _usersSub?.cancel();
+      _usersSub = Services.db.streamAllUsers().listen((list) {
+        if (mounted) {
+          setState(() {
+            _allUsers = _sortUsers(list);
+            _isLoading = false;
+          });
+        }
       });
     } catch (_) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _createUser() async {
+    final nameErr = Validators.validateRequired(_nameController.text, 'Full Name', maxLen: 60);
+    if (nameErr != null) {
+      _formKey.currentState?.validate();
+      AppAlerts.error(context, nameErr);
+      return;
+    }
+    final emailErr = Validators.validateEmail(_usernameController.text, strictEmail: true);
+    if (emailErr != null) {
+      _formKey.currentState?.validate();
+      AppAlerts.error(context, emailErr);
+      return;
+    }
+    final passErr = Validators.validatePassword(_passwordController.text);
+    if (passErr != null) {
+      _formKey.currentState?.validate();
+      AppAlerts.error(context, passErr);
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSubmitting = true);
 
     final name = Validators.sanitizeText(_nameController.text);
-    final username = _usernameController.text.trim();
+    final username = _usernameController.text.trim().toLowerCase();
     final password = _passwordController.text;
 
     try {
@@ -70,9 +103,8 @@ class _ManageUsersState extends State<ManageUsers> {
       _usernameController.clear();
       _passwordController.clear();
 
-      _loadUsers();
-
       if (!mounted) return;
+      AppAlerts.success(context, 'Account created for ${createdUser.name}!');
 
       // Dialog showing credentials details with a Copy option
       showDialog(
@@ -116,12 +148,7 @@ class _ManageUsersState extends State<ManageUsers> {
                 label: const Text('Copy Credentials'),
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: shareText));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Credentials copied to clipboard!'),
-                      backgroundColor: AppTheme.alertSuccess,
-                    ),
-                  );
+                  AppAlerts.success(context, 'Credentials copied to clipboard!');
                   Navigator.pop(context);
                 },
               ),
@@ -131,12 +158,7 @@ class _ManageUsersState extends State<ManageUsers> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: AppTheme.alertSevere,
-        ),
-      );
+      AppAlerts.error(context, 'Error: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -147,12 +169,7 @@ class _ManageUsersState extends State<ManageUsers> {
   Future<void> _deleteUser(AppUser user) async {
     // Prevent deleting admin accounts
     if (user.role == 'admin') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Admin accounts cannot be deleted.'),
-          backgroundColor: AppTheme.alertWarning,
-        ),
-      );
+      AppAlerts.warning(context, 'Admin accounts cannot be deleted.');
       return;
     }
 
@@ -215,14 +232,8 @@ class _ManageUsersState extends State<ManageUsers> {
     if (confirmed == true) {
       try {
         await Services.auth.deleteUser(user.uid);
-        _loadUsers();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Account for "${user.name}" has been deleted.'),
-            backgroundColor: AppTheme.alertSevere,
-          ),
-        );
+        AppAlerts.info(context, 'Account for "${user.name}" has been deleted.');
       } catch (e) {
         if (!mounted) return;
         final errorText = e.toString();
@@ -278,23 +289,10 @@ class _ManageUsersState extends State<ManageUsers> {
             ),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to delete user: $errorText'),
-              backgroundColor: AppTheme.alertSevere,
-            ),
-          );
+          AppAlerts.error(context, 'Failed to delete user: $errorText');
         }
       }
     }
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _usernameController.dispose();
-    _passwordController.dispose();
-    super.dispose();
   }
 
   @override
@@ -308,7 +306,7 @@ class _ManageUsersState extends State<ManageUsers> {
       ),
       body: Container(
         height: double.infinity,
-        decoration: AppTheme.backgroundGradient,
+        decoration: AppTheme.backgroundGradientOf(context),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: AppTheme.tealPrimary))
             : isDesktop
@@ -340,7 +338,7 @@ class _ManageUsersState extends State<ManageUsers> {
   Widget _buildCreateFormCard() {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: AppTheme.glassCardDecoration(),
+      decoration: AppTheme.glassCardDecorationOf(context),
       child: Form(
         key: _formKey,
         child: Column(
@@ -367,13 +365,16 @@ class _ManageUsersState extends State<ManageUsers> {
             ),
             const SizedBox(height: 16),
 
-            // Username/Email
+            // Email Address
             TextFormField(
               controller: _usernameController,
               keyboardType: TextInputType.emailAddress,
+              autovalidateMode: AutovalidateMode.onUserInteraction,
               decoration: const InputDecoration(
-                labelText: 'Email Address / Username',
+                labelText: 'Email Address',
+                hintText: 'e.g. student@carecampus.org',
                 prefixIcon: Icon(Icons.alternate_email_rounded),
+                helperText: 'Must be in valid format (e.g. name@domain.com)',
               ),
               validator: (v) => Validators.validateEmail(v, strictEmail: true),
             ),
@@ -442,7 +443,7 @@ class _ManageUsersState extends State<ManageUsers> {
   Widget _buildUsersListCard() {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: AppTheme.glassCardDecoration(),
+      decoration: AppTheme.glassCardDecorationOf(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -455,7 +456,7 @@ class _ManageUsersState extends State<ManageUsers> {
                 'Registered Users Queue (${_allUsers.length})',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w800,
-                  color: AppTheme.navyText,
+                  color: AppTheme.textPrimary(context),
                 ),
               ),
             ],

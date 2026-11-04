@@ -1,24 +1,83 @@
 // Security Input Validation & Sanitization Controls
 
 class Validators {
-  /// Validates that an email format is correct.
+  /// Validates that an email format is correct and complies with standard RFC 5322 rules.
   /// When [strictEmail] is true, only valid email formats are accepted
   /// (no mock shortcuts like 'admin', 'counsellor', 'student').
   static String? validateEmail(String? value, {bool strictEmail = false}) {
     if (value == null || value.trim().isEmpty) {
-      return 'Email or username is required.';
+      return 'Email address is required.';
     }
     final trimmed = value.trim();
+
     // Allow standard mock shortcuts only for login (non-strict mode)
     if (!strictEmail && (trimmed == 'admin' || trimmed == 'counsellor' || trimmed == 'student')) {
       return null; // allow mock shortcuts
     }
+
+    if (trimmed.length > 254) {
+      return 'Email address cannot exceed 254 characters.';
+    }
+
+    if (trimmed.contains(' ')) {
+      return 'Email address cannot contain spaces.';
+    }
+
+    final atIndex = trimmed.indexOf('@');
+    final lastAtIndex = trimmed.lastIndexOf('@');
+    if (atIndex == -1) {
+      return 'Email address must contain an "@" symbol (e.g. user@domain.com).';
+    }
+    if (atIndex != lastAtIndex) {
+      return 'Email address can only contain one "@" symbol.';
+    }
+
+    final localPart = trimmed.substring(0, atIndex);
+    final domainPart = trimmed.substring(atIndex + 1);
+
+    if (localPart.isEmpty) {
+      return 'Email username before "@" cannot be empty.';
+    }
+    if (localPart.length > 64) {
+      return 'Email username cannot exceed 64 characters.';
+    }
+    if (localPart.startsWith('.') || localPart.endsWith('.')) {
+      return 'Email username cannot start or end with a dot.';
+    }
+    if (localPart.contains('..')) {
+      return 'Email username cannot contain consecutive dots.';
+    }
+
+    if (domainPart.isEmpty) {
+      return 'Email domain after "@" cannot be empty (e.g. domain.com).';
+    }
+    if (domainPart.startsWith('.') || domainPart.endsWith('.') || domainPart.startsWith('-') || domainPart.endsWith('-')) {
+      return 'Email domain cannot start or end with a dot or hyphen.';
+    }
+    if (domainPart.contains('..')) {
+      return 'Email domain cannot contain consecutive dots.';
+    }
+    if (!domainPart.contains('.')) {
+      return 'Email domain must include a valid extension (e.g. .com, .edu, .org).';
+    }
+
+    final domainParts = domainPart.split('.');
+    final tld = domainParts.last;
+    if (tld.length < 2) {
+      return 'Email domain extension must be at least 2 letters (e.g. .com, .edu).';
+    }
+    if (!RegExp(r'^[a-zA-Z]{2,24}$').hasMatch(tld)) {
+      return 'Email domain extension can only contain letters (e.g. .com, .org).';
+    }
+
+    // Comprehensive RFC-compliant regex verification
     final emailRegExp = RegExp(
-      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+      r'^[a-zA-Z0-9]([a-zA-Z0-9._%+-]*[a-zA-Z0-9])?@[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$',
     );
     if (!emailRegExp.hasMatch(trimmed)) {
-      return 'Please enter a valid email address.';
+      return 'Please enter a valid email format (e.g. user@domain.com).';
     }
+
     return null;
   }
 

@@ -60,6 +60,7 @@ class _UserProfileDialogContent extends StatelessWidget {
       securityBadgeText = 'Anonymity Shield: Identity masked during confidential bookings';
     }
 
+    final isDark = AppTheme.isDark(context);
     final initial = (user.name.isNotEmpty ? user.name[0] : 'U').toUpperCase();
 
     final createdDateStr = '${user.createdAt.day.toString().padLeft(2, '0')}/'
@@ -67,7 +68,7 @@ class _UserProfileDialogContent extends StatelessWidget {
         '${user.createdAt.year}';
 
     return Dialog(
-      backgroundColor: AppTheme.white,
+      backgroundColor: AppTheme.cardBg(context),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
       child: ConstrainedBox(
@@ -98,13 +99,13 @@ class _UserProfileDialogContent extends StatelessWidget {
                         style: GoogleFonts.nunito(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
-                          color: AppTheme.slateText,
+                          color: AppTheme.textSecondary(context),
                         ),
                       ),
                     ],
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppTheme.mutedText, size: 20),
+                    icon: Icon(Icons.close_rounded, color: AppTheme.textMuted(context), size: 20),
                     onPressed: () => Navigator.pop(context),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -118,9 +119,9 @@ class _UserProfileDialogContent extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
                 decoration: BoxDecoration(
-                  gradient: AppTheme.heroBg,
+                  gradient: isDark ? AppTheme.heroBgDark : AppTheme.heroBg,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppTheme.iceBlue.withValues(alpha: 0.6)),
+                  border: Border.all(color: AppTheme.borderColor(context).withValues(alpha: 0.6)),
                 ),
                 child: Column(
                   children: [
@@ -133,7 +134,7 @@ class _UserProfileDialogContent extends StatelessWidget {
                       ),
                       child: CircleAvatar(
                         radius: 34,
-                        backgroundColor: roleBg,
+                        backgroundColor: isDark ? roleColor.withValues(alpha: 0.2) : roleBg,
                         child: Text(
                           initial,
                           style: GoogleFonts.nunito(
@@ -151,7 +152,7 @@ class _UserProfileDialogContent extends StatelessWidget {
                       style: GoogleFonts.nunito(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: AppTheme.navyText,
+                        color: AppTheme.textPrimary(context),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -160,7 +161,7 @@ class _UserProfileDialogContent extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: GoogleFonts.nunito(
                         fontSize: 13,
-                        color: AppTheme.slateText,
+                        color: AppTheme.textSecondary(context),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -195,6 +196,7 @@ class _UserProfileDialogContent extends StatelessWidget {
 
               // Details section
               _infoTile(
+                context: context,
                 icon: Icons.shield_outlined,
                 title: 'Security & Privacy',
                 subtitle: securityBadgeText,
@@ -202,6 +204,7 @@ class _UserProfileDialogContent extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               _infoTile(
+                context: context,
                 icon: Icons.info_outline_rounded,
                 title: 'Role Scope',
                 subtitle: roleDescription,
@@ -209,10 +212,11 @@ class _UserProfileDialogContent extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               _infoTile(
+                context: context,
                 icon: Icons.calendar_today_rounded,
                 title: 'Account Member Since',
                 subtitle: createdDateStr,
-                accentColor: AppTheme.slateText,
+                accentColor: AppTheme.textSecondary(context),
               ),
               const SizedBox(height: 20),
 
@@ -265,6 +269,7 @@ class _UserProfileDialogContent extends StatelessWidget {
   }
 
   Widget _infoTile({
+    required BuildContext context,
     required IconData icon,
     required String title,
     required String subtitle,
@@ -273,9 +278,9 @@ class _UserProfileDialogContent extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.skyWhite,
+        color: AppTheme.cardBgAlt(context),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppTheme.iceBlue.withValues(alpha: 0.5)),
+        border: Border.all(color: AppTheme.borderColor(context).withValues(alpha: 0.5)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,7 +303,7 @@ class _UserProfileDialogContent extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.navyText,
+                    color: AppTheme.textPrimary(context),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -306,7 +311,7 @@ class _UserProfileDialogContent extends StatelessWidget {
                   subtitle,
                   style: GoogleFonts.nunito(
                     fontSize: 11,
-                    color: AppTheme.slateText,
+                    color: AppTheme.textSecondary(context),
                     height: 1.3,
                   ),
                 ),

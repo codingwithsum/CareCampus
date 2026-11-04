@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/user_model.dart';
@@ -9,6 +10,7 @@ import 'appointment_requests.dart';
 import 'manage_resources.dart';
 import 'session_history.dart';
 import '../../widgets/user_profile_dialog.dart';
+import '../../widgets/logout_confirmation_dialog.dart';
 
 class CounsellorDashboard extends StatefulWidget {
   const CounsellorDashboard({super.key});
@@ -21,11 +23,18 @@ class _CounsellorDashboardState extends State<CounsellorDashboard> {
   AppUser? _user;
   List<Appointment> _myAppointments = [];
   bool _isLoading = true;
+  StreamSubscription<List<Appointment>>? _appointmentsSub;
 
   @override
   void initState() {
     super.initState();
     _loadCounsellorData();
+  }
+
+  @override
+  void dispose() {
+    _appointmentsSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadCounsellorData() async {
@@ -41,12 +50,16 @@ class _CounsellorDashboardState extends State<CounsellorDashboard> {
       }
 
       _user = currentUser;
-      final appts =
-          await Services.db.getAppointments(currentUser.uid, 'counsellor');
-
-      setState(() {
-        _myAppointments = appts;
-        _isLoading = false;
+      _appointmentsSub?.cancel();
+      _appointmentsSub = Services.db
+          .streamAppointments(currentUser.uid, 'counsellor')
+          .listen((appts) {
+        if (mounted) {
+          setState(() {
+            _myAppointments = appts;
+            _isLoading = false;
+          });
+        }
       });
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
@@ -62,17 +75,25 @@ class _CounsellorDashboardState extends State<CounsellorDashboard> {
     );
   }
 
+  Future<void> _confirmSignOut() async {
+    final confirmed = await showLogoutConfirmationDialog(context);
+    if (confirmed && mounted) {
+      _secureSignOut();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: AppTheme.skyWhite,
-        body: Center(
+      return Scaffold(
+        backgroundColor: AppTheme.scaffoldBg(context),
+        body: const Center(
           child: CircularProgressIndicator(color: AppTheme.tealBlue),
         ),
       );
     }
 
+    final isDark = AppTheme.isDark(context);
     final pendingCount =
         _myAppointments.where((a) => a.status == 'pending').length;
     final activeCount =
@@ -81,7 +102,7 @@ class _CounsellorDashboardState extends State<CounsellorDashboard> {
         _myAppointments.where((a) => a.status == 'completed').length;
 
     return Scaffold(
-      backgroundColor: AppTheme.skyWhite,
+      backgroundColor: AppTheme.scaffoldBg(context),
       appBar: _buildAppBar(),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -101,7 +122,9 @@ class _CounsellorDashboardState extends State<CounsellorDashboard> {
                     value: pendingCount.toString(),
                     icon: Icons.pending_actions_rounded,
                     color: AppTheme.alertAmber,
-                    bgColor: const Color(0xFFFFF8E1),
+                    bgColor: isDark
+                        ? AppTheme.alertAmber.withValues(alpha: 0.15)
+                        : const Color(0xFFFFF8E1),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -111,7 +134,9 @@ class _CounsellorDashboardState extends State<CounsellorDashboard> {
                     value: activeCount.toString(),
                     icon: Icons.schedule_rounded,
                     color: AppTheme.alertGreen,
-                    bgColor: const Color(0xFFE8F8F0),
+                    bgColor: isDark
+                        ? AppTheme.alertGreen.withValues(alpha: 0.15)
+                        : const Color(0xFFE8F8F0),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -121,7 +146,9 @@ class _CounsellorDashboardState extends State<CounsellorDashboard> {
                     value: completedCount.toString(),
                     icon: Icons.task_alt_rounded,
                     color: AppTheme.tealBlue,
-                    bgColor: const Color(0xFFE3F6FA),
+                    bgColor: isDark
+                        ? AppTheme.tealBlue.withValues(alpha: 0.15)
+                        : const Color(0xFFE3F6FA),
                   ),
                 ),
               ],
@@ -134,7 +161,7 @@ class _CounsellorDashboardState extends State<CounsellorDashboard> {
               style: GoogleFonts.nunito(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: AppTheme.navyText,
+                color: AppTheme.textPrimary(context),
               ),
             ),
             const SizedBox(height: 14),
@@ -145,7 +172,9 @@ class _CounsellorDashboardState extends State<CounsellorDashboard> {
                   'View pending bookings, confirm or reject, and schedule times.',
               icon: Icons.calendar_today_rounded,
               iconColor: AppTheme.alertAmber,
-              iconBg: const Color(0xFFFFF8E1),
+              iconBg: isDark
+                  ? AppTheme.alertAmber.withValues(alpha: 0.15)
+                  : const Color(0xFFFFF8E1),
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -156,10 +185,12 @@ class _CounsellorDashboardState extends State<CounsellorDashboard> {
             _ModuleCard(
               title: 'Manage Wellness Resources',
               desc:
-                  'Upload and publish guides, audio, videos & PDFs for students.',
+                  'Upload and publish audio, videos & PDFs for students.',
               icon: Icons.library_books_rounded,
               iconColor: AppTheme.tealBlue,
-              iconBg: const Color(0xFFE3F6FA),
+              iconBg: isDark
+                  ? AppTheme.tealBlue.withValues(alpha: 0.15)
+                  : const Color(0xFFE3F6FA),
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ManageResources()),
@@ -172,7 +203,9 @@ class _CounsellorDashboardState extends State<CounsellorDashboard> {
                   'Read and update case notes from previous consultations.',
               icon: Icons.history_edu_rounded,
               iconColor: const Color(0xFF9B59B6),
-              iconBg: const Color(0xFFF4EBF9),
+              iconBg: isDark
+                  ? const Color(0xFF9B59B6).withValues(alpha: 0.15)
+                  : const Color(0xFFF4EBF9),
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const SessionHistory()),
@@ -187,7 +220,7 @@ class _CounsellorDashboardState extends State<CounsellorDashboard> {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
-      backgroundColor: AppTheme.white,
+      backgroundColor: AppTheme.cardBg(context),
       elevation: 0,
       title: Row(
         children: [
@@ -236,7 +269,7 @@ class _CounsellorDashboardState extends State<CounsellorDashboard> {
                 showUserProfileDialog(
                   context,
                   user: _user!,
-                  onLogout: _secureSignOut,
+                  onLogout: _confirmSignOut,
                 );
               }
             },
@@ -252,7 +285,9 @@ class _CounsellorDashboardState extends State<CounsellorDashboard> {
               ),
               child: CircleAvatar(
                 radius: 16,
-                backgroundColor: const Color(0xFFF4EBF9),
+                backgroundColor: AppTheme.isDark(context)
+                    ? const Color(0xFF9B59B6).withValues(alpha: 0.2)
+                    : const Color(0xFFF4EBF9),
                 child: Text(
                   (_user?.name ?? 'C').substring(0, 1).toUpperCase(),
                   style: GoogleFonts.nunito(
@@ -269,12 +304,12 @@ class _CounsellorDashboardState extends State<CounsellorDashboard> {
           tooltip: 'Logout',
           icon: const Icon(Icons.logout_rounded,
               color: AppTheme.alertRed, size: 20),
-          onPressed: _secureSignOut,
+          onPressed: _confirmSignOut,
         ),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: AppTheme.iceBlue),
+        child: Container(height: 1, color: AppTheme.borderColor(context)),
       ),
     );
   }
@@ -383,7 +418,7 @@ class _StatBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
-      decoration: AppTheme.glassCardDecoration(),
+      decoration: AppTheme.glassCardDecorationOf(context),
       child: Column(
         children: [
           Container(
@@ -400,14 +435,14 @@ class _StatBadge extends StatelessWidget {
             style: GoogleFonts.nunito(
               fontSize: 22,
               fontWeight: FontWeight.w900,
-              color: AppTheme.navyText,
+              color: AppTheme.textPrimary(context),
             ),
           ),
           Text(
             label,
             style: GoogleFonts.nunito(
               fontSize: 10,
-              color: AppTheme.mutedText,
+              color: AppTheme.textMuted(context),
               fontWeight: FontWeight.w600,
             ),
             textAlign: TextAlign.center,
@@ -445,6 +480,7 @@ class _ModuleCardState extends State<_ModuleCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -454,21 +490,23 @@ class _ModuleCardState extends State<_ModuleCard> {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: AppTheme.white,
+            color: AppTheme.cardBg(context),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
               color: _hovered
                   ? widget.iconColor.withValues(alpha: 0.4)
-                  : AppTheme.iceBlue,
+                  : AppTheme.borderColor(context),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.iconColor
-                    .withValues(alpha: _hovered ? 0.12 : 0.05),
-                blurRadius: _hovered ? 18 : 10,
-                offset: const Offset(0, 5),
-              ),
-            ],
+            boxShadow: isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: widget.iconColor
+                          .withValues(alpha: _hovered ? 0.12 : 0.05),
+                      blurRadius: _hovered ? 18 : 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
           ),
           child: Row(
             children: [
@@ -490,7 +528,7 @@ class _ModuleCardState extends State<_ModuleCard> {
                       style: GoogleFonts.nunito(
                         fontWeight: FontWeight.w800,
                         fontSize: 15,
-                        color: AppTheme.navyText,
+                        color: AppTheme.textPrimary(context),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -498,7 +536,7 @@ class _ModuleCardState extends State<_ModuleCard> {
                       widget.desc,
                       style: GoogleFonts.nunito(
                         fontSize: 12,
-                        color: AppTheme.mutedText,
+                        color: AppTheme.textMuted(context),
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -506,7 +544,7 @@ class _ModuleCardState extends State<_ModuleCard> {
                 ),
               ),
               Icon(Icons.arrow_forward_ios_rounded,
-                  color: _hovered ? widget.iconColor : AppTheme.mutedText,
+                  color: _hovered ? widget.iconColor : AppTheme.textMuted(context),
                   size: 16),
             ],
           ),

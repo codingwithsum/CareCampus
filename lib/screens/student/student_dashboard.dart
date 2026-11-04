@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/user_model.dart';
@@ -11,6 +12,7 @@ import 'resource_hub.dart';
 import 'chatbot_chat.dart';
 import 'assessment_form.dart';
 import '../../widgets/user_profile_dialog.dart';
+import '../../widgets/logout_confirmation_dialog.dart';
 
 class StudentDashboard extends StatefulWidget {
   const StudentDashboard({super.key});
@@ -24,11 +26,18 @@ class _StudentDashboardState extends State<StudentDashboard> {
   List<Appointment> _appointments = [];
   List<String> _warnings = [];
   bool _isLoading = true;
+  StreamSubscription<List<Appointment>>? _appointmentsSub;
 
   @override
   void initState() {
     super.initState();
     _loadDashboardData();
+  }
+
+  @override
+  void dispose() {
+    _appointmentsSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadDashboardData() async {
@@ -44,15 +53,25 @@ class _StudentDashboardState extends State<StudentDashboard> {
       }
 
       _user = currentUser;
-      final appointments =
-          await Services.db.getAppointments(currentUser.uid, 'student');
       final warnings = await Services.db.getUserWarnings(currentUser.uid);
 
-      setState(() {
-        _appointments = appointments;
-        _warnings = warnings;
-        _isLoading = false;
+      _appointmentsSub?.cancel();
+      _appointmentsSub = Services.db
+          .streamAppointments(currentUser.uid, 'student')
+          .listen((appointments) {
+        if (mounted) {
+          setState(() {
+            _appointments = appointments;
+            _isLoading = false;
+          });
+        }
       });
+
+      if (mounted) {
+        setState(() {
+          _warnings = warnings;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -67,12 +86,19 @@ class _StudentDashboardState extends State<StudentDashboard> {
     );
   }
 
+  Future<void> _confirmSignOut() async {
+    final confirmed = await showLogoutConfirmationDialog(context);
+    if (confirmed && mounted) {
+      _secureSignOut();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: AppTheme.skyWhite,
-        body: Center(
+      return Scaffold(
+        backgroundColor: AppTheme.scaffoldBg(context),
+        body: const Center(
           child: CircularProgressIndicator(color: AppTheme.tealBlue),
         ),
       );
@@ -84,7 +110,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
         _appointments.where((a) => a.status == 'accepted').length;
 
     return Scaffold(
-      backgroundColor: AppTheme.skyWhite,
+      backgroundColor: AppTheme.scaffoldBg(context),
       appBar: _buildAppBar(context),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -110,7 +136,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     value: pendingCount.toString(),
                     icon: Icons.hourglass_empty_rounded,
                     color: AppTheme.alertAmber,
-                    bgColor: const Color(0xFFFFF8E1),
+                    bgColor: AppTheme.isDark(context)
+                        ? AppTheme.alertAmber.withValues(alpha: 0.15)
+                        : const Color(0xFFFFF8E1),
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -120,7 +148,9 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     value: approvedCount.toString(),
                     icon: Icons.event_available_rounded,
                     color: AppTheme.alertGreen,
-                    bgColor: const Color(0xFFE8F8F0),
+                    bgColor: AppTheme.isDark(context)
+                        ? AppTheme.alertGreen.withValues(alpha: 0.15)
+                        : const Color(0xFFE8F8F0),
                   ),
                 ),
               ],
@@ -133,7 +163,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
               style: GoogleFonts.nunito(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: AppTheme.navyText,
+                color: AppTheme.textPrimary(context),
               ),
             ),
             const SizedBox(height: 14),
@@ -142,6 +172,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 final crossCount = constraints.maxWidth > 600 ? 3 : 2;
                 final cardWidth = (constraints.maxWidth - (crossCount - 1) * 14) / crossCount;
                 final aspectRatio = cardWidth < 140 ? 0.9 : 1.05;
+                final isDark = AppTheme.isDark(context);
                 return GridView.count(
                   crossAxisCount: crossCount,
                   shrinkWrap: true,
@@ -155,7 +186,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       desc: 'Chat & get coping advice',
                       icon: Icons.smart_toy_outlined,
                       iconColor: const Color(0xFF4A90E2),
-                      iconBg: const Color(0xFFEAF3FF),
+                      iconBg: isDark ? const Color(0xFF4A90E2).withValues(alpha: 0.15) : const Color(0xFFEAF3FF),
                       onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -166,7 +197,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       desc: 'PHQ-9, GAD-7, GHQ-12',
                       icon: Icons.assignment_outlined,
                       iconColor: const Color(0xFF27AE60),
-                      iconBg: const Color(0xFFE8F8F0),
+                      iconBg: isDark ? const Color(0xFF27AE60).withValues(alpha: 0.15) : const Color(0xFFE8F8F0),
                       onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -177,7 +208,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       desc: 'Schedule a session',
                       icon: Icons.calendar_month_outlined,
                       iconColor: const Color(0xFF2AA8C4),
-                      iconBg: const Color(0xFFE3F6FA),
+                      iconBg: isDark ? const Color(0xFF2AA8C4).withValues(alpha: 0.15) : const Color(0xFFE3F6FA),
                       onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -189,16 +220,16 @@ class _StudentDashboardState extends State<StudentDashboard> {
                       desc: 'Anonymous community',
                       icon: Icons.forum_outlined,
                       iconColor: const Color(0xFF9B59B6),
-                      iconBg: const Color(0xFFF4EBF9),
+                      iconBg: isDark ? const Color(0xFF9B59B6).withValues(alpha: 0.15) : const Color(0xFFF4EBF9),
                       onTap: () => Navigator.push(context,
                           MaterialPageRoute(builder: (_) => const PeerForum())),
                     ),
                     _ServiceCard(
                       title: 'Resource Hub',
-                      desc: 'Guides & meditations',
+                      desc: 'Videos, audio & PDFs',
                       icon: Icons.folder_shared_outlined,
                       iconColor: const Color(0xFFF5A623),
-                      iconBg: const Color(0xFFFFF4E0),
+                      iconBg: isDark ? const Color(0xFFF5A623).withValues(alpha: 0.15) : const Color(0xFFFFF4E0),
                       onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -216,7 +247,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
               style: GoogleFonts.nunito(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
-                color: AppTheme.navyText,
+                color: AppTheme.textPrimary(context),
               ),
             ),
             const SizedBox(height: 14),
@@ -226,7 +257,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: _appointments.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    separatorBuilder: (_, i) => const SizedBox(height: 10),
                     itemBuilder: (context, idx) {
                       final appt = _appointments[idx];
                       return _AppointmentCard(appointment: appt);
@@ -241,7 +272,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: AppTheme.white,
+      backgroundColor: AppTheme.cardBg(context),
       elevation: 0,
       title: Row(
         children: [
@@ -290,7 +321,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
                 showUserProfileDialog(
                   context,
                   user: _user!,
-                  onLogout: _secureSignOut,
+                  onLogout: _confirmSignOut,
                 );
               }
             },
@@ -306,7 +337,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
               ),
               child: CircleAvatar(
                 radius: 16,
-                backgroundColor: AppTheme.cloudBlue,
+                backgroundColor: AppTheme.cardBgAlt(context),
                 child: Text(
                   (_user?.name ?? 'S').substring(0, 1).toUpperCase(),
                   style: GoogleFonts.nunito(
@@ -323,12 +354,12 @@ class _StudentDashboardState extends State<StudentDashboard> {
           tooltip: 'Logout',
           icon:
               const Icon(Icons.logout_rounded, color: AppTheme.alertRed, size: 20),
-          onPressed: _secureSignOut,
+          onPressed: _confirmSignOut,
         ),
       ],
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
-        child: Container(height: 1, color: AppTheme.iceBlue),
+        child: Container(height: 1, color: AppTheme.borderColor(context)),
       ),
     );
   }
@@ -419,10 +450,11 @@ class _AlertBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3F3),
+        color: isDark ? AppTheme.alertRed.withValues(alpha: 0.12) : const Color(0xFFFFF3F3),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppTheme.alertRed.withValues(alpha: 0.3)),
       ),
@@ -450,7 +482,7 @@ class _AlertBanner extends StatelessWidget {
                 child: Text(
                   '• $w',
                   style: GoogleFonts.nunito(
-                    color: AppTheme.navyText,
+                    color: AppTheme.textPrimary(context),
                     fontSize: 13,
                   ),
                 ),
@@ -481,7 +513,7 @@ class _StatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: AppTheme.glassCardDecoration(),
+      decoration: AppTheme.glassCardDecorationOf(context),
       child: Row(
         children: [
           Container(
@@ -502,14 +534,14 @@ class _StatusCard extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
-                    color: AppTheme.navyText,
+                    color: AppTheme.textPrimary(context),
                   ),
                 ),
                 Text(
                   label,
                   style: GoogleFonts.nunito(
                     fontSize: 11,
-                    color: AppTheme.mutedText,
+                    color: AppTheme.textMuted(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -549,6 +581,7 @@ class _ServiceCardState extends State<_ServiceCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
@@ -558,18 +591,22 @@ class _ServiceCardState extends State<_ServiceCard> {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.white,
+            color: AppTheme.cardBg(context),
             borderRadius: BorderRadius.circular(18),
             border: Border.all(
-              color: _hovered ? widget.iconColor.withValues(alpha: 0.4) : AppTheme.iceBlue,
+              color: _hovered
+                  ? widget.iconColor.withValues(alpha: 0.4)
+                  : AppTheme.borderColor(context),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.iconColor.withValues(alpha: _hovered ? 0.15 : 0.06),
-                blurRadius: _hovered ? 20 : 12,
-                offset: const Offset(0, 6),
-              ),
-            ],
+            boxShadow: isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: widget.iconColor.withValues(alpha: _hovered ? 0.15 : 0.06),
+                      blurRadius: _hovered ? 20 : 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -591,7 +628,7 @@ class _ServiceCardState extends State<_ServiceCard> {
                     style: GoogleFonts.nunito(
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
-                      color: AppTheme.navyText,
+                      color: AppTheme.textPrimary(context),
                     ),
                   ),
                   const SizedBox(height: 3),
@@ -599,7 +636,7 @@ class _ServiceCardState extends State<_ServiceCard> {
                     widget.desc,
                     style: GoogleFonts.nunito(
                       fontSize: 11,
-                      color: AppTheme.mutedText,
+                      color: AppTheme.textMuted(context),
                       fontWeight: FontWeight.w500,
                     ),
                     maxLines: 2,
@@ -622,16 +659,16 @@ class _EmptyAppointments extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(28),
-      decoration: AppTheme.glassCardDecoration(),
+      decoration: AppTheme.glassCardDecorationOf(context),
       child: Column(
         children: [
-          const Icon(Icons.calendar_today_outlined,
-              size: 40, color: AppTheme.mutedText),
+          Icon(Icons.calendar_today_outlined,
+              size: 40, color: AppTheme.textMuted(context)),
           const SizedBox(height: 12),
           Text(
             'No appointments booked yet',
             style: GoogleFonts.nunito(
-              color: AppTheme.slateText,
+              color: AppTheme.textSecondary(context),
               fontWeight: FontWeight.w700,
               fontSize: 14,
             ),
@@ -641,7 +678,7 @@ class _EmptyAppointments extends StatelessWidget {
             'If you\'re feeling overwhelmed, consider booking a counsellor session.',
             textAlign: TextAlign.center,
             style: GoogleFonts.nunito(
-              color: AppTheme.mutedText,
+              color: AppTheme.textMuted(context),
               fontSize: 13,
             ),
           ),
@@ -659,24 +696,25 @@ class _AppointmentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDark(context);
     Color statusColor = AppTheme.alertAmber;
-    Color statusBg = const Color(0xFFFFF8E1);
+    Color statusBg = isDark ? AppTheme.alertAmber.withValues(alpha: 0.15) : const Color(0xFFFFF8E1);
     if (appointment.status == 'accepted') {
       statusColor = AppTheme.alertGreen;
-      statusBg = const Color(0xFFE8F8F0);
+      statusBg = isDark ? AppTheme.alertGreen.withValues(alpha: 0.15) : const Color(0xFFE8F8F0);
     }
     if (appointment.status == 'completed') {
       statusColor = AppTheme.tealBlue;
-      statusBg = const Color(0xFFE3F6FA);
+      statusBg = isDark ? AppTheme.tealBlue.withValues(alpha: 0.15) : const Color(0xFFE3F6FA);
     }
     if (appointment.status == 'rejected') {
       statusColor = AppTheme.alertRed;
-      statusBg = const Color(0xFFFFF3F3);
+      statusBg = isDark ? AppTheme.alertRed.withValues(alpha: 0.15) : const Color(0xFFFFF3F3);
     }
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: AppTheme.glassCardDecoration(),
+      decoration: AppTheme.glassCardDecorationOf(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -693,7 +731,7 @@ class _AppointmentCard extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontWeight: FontWeight.w800,
                     fontSize: 15,
-                    color: AppTheme.navyText,
+                    color: AppTheme.textPrimary(context),
                   ),
                 ),
               ),
@@ -738,7 +776,7 @@ class _AppointmentCard extends StatelessWidget {
             ),
           ],
           if (appointment.sessionNotes != null) ...[
-            const Divider(height: 20, color: AppTheme.iceBlue),
+            Divider(height: 20, color: AppTheme.borderColor(context)),
             Text(
               'Session Notes:',
               style: GoogleFonts.nunito(
@@ -752,7 +790,7 @@ class _AppointmentCard extends StatelessWidget {
               appointment.sessionNotes!,
               style: GoogleFonts.nunito(
                 fontStyle: FontStyle.italic,
-                color: AppTheme.slateText,
+                color: AppTheme.textSecondary(context),
                 fontSize: 13,
               ),
             ),
@@ -772,13 +810,13 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, size: 16, color: AppTheme.mutedText),
+        Icon(icon, size: 16, color: AppTheme.textMuted(context)),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
             text,
             style: GoogleFonts.nunito(
-              color: AppTheme.slateText,
+              color: AppTheme.textSecondary(context),
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),

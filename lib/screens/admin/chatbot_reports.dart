@@ -75,7 +75,7 @@ class _ChatbotReportsState extends State<ChatbotReports> {
       ),
       body: Container(
         height: double.infinity,
-        decoration: AppTheme.backgroundGradient,
+        decoration: AppTheme.backgroundGradientOf(context),
         child: SingleChildScrollView(
           padding: EdgeInsets.all(isDesktop ? 24 : 16),
           child: Column(
@@ -186,7 +186,7 @@ class _ChatbotReportsState extends State<ChatbotReports> {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.symmetric(horizontal: isMobile ? 16 : 20, vertical: isMobile ? 14 : 20),
-      decoration: AppTheme.glassCardDecoration(),
+      decoration: AppTheme.glassCardDecorationOf(context),
       child: Row(
         children: [
           Container(
@@ -208,13 +208,13 @@ class _ChatbotReportsState extends State<ChatbotReports> {
                   style: TextStyle(
                     fontSize: isMobile ? 24 : 28,
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.textHigh,
+                    color: AppTheme.textPrimary(context),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 12, color: AppTheme.textLow),
+                  style: TextStyle(fontSize: 12, color: AppTheme.textMuted(context)),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -229,7 +229,7 @@ class _ChatbotReportsState extends State<ChatbotReports> {
   Widget _buildTopicsList(List<MapEntry<String, int>> topics, int totalCount, bool isDesktop) {
     return Container(
       padding: EdgeInsets.all(isDesktop ? 24 : 16),
-      decoration: AppTheme.glassCardDecoration(),
+      decoration: AppTheme.glassCardDecorationOf(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -293,7 +293,7 @@ class _ChatbotReportsState extends State<ChatbotReports> {
     
     return Container(
       padding: EdgeInsets.all(isDesktop ? 24 : 16),
-      decoration: AppTheme.glassCardDecoration(),
+      decoration: AppTheme.glassCardDecorationOf(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

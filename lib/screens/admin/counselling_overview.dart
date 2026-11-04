@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../models/appointment_model.dart';
 import '../../services/services.dart';
@@ -13,6 +14,7 @@ class CounsellingOverview extends StatefulWidget {
 class _CounsellingOverviewState extends State<CounsellingOverview> {
   List<Appointment> _allAppointments = [];
   bool _isLoading = true;
+  StreamSubscription<List<Appointment>>? _appointmentsSub;
 
   @override
   void initState() {
@@ -20,15 +22,27 @@ class _CounsellingOverviewState extends State<CounsellingOverview> {
     _loadAllAppointments();
   }
 
+  @override
+  void dispose() {
+    _appointmentsSub?.cancel();
+    super.dispose();
+  }
+
   Future<void> _loadAllAppointments() async {
     try {
-      final list = await Services.db.getAppointments('', 'admin');
-      setState(() {
-        _allAppointments = list;
-        _isLoading = false;
+      _appointmentsSub?.cancel();
+      _appointmentsSub = Services.db
+          .streamAppointments('', 'admin')
+          .listen((list) {
+        if (mounted) {
+          setState(() {
+            _allAppointments = list;
+            _isLoading = false;
+          });
+        }
       });
     } catch (_) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -40,7 +54,7 @@ class _CounsellingOverviewState extends State<CounsellingOverview> {
       ),
       body: Container(
         height: double.infinity,
-        decoration: AppTheme.backgroundGradient,
+        decoration: AppTheme.backgroundGradientOf(context),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: AppTheme.tealPrimary))
             : _allAppointments.isEmpty
@@ -71,7 +85,7 @@ class _CounsellingOverviewState extends State<CounsellingOverview> {
 
                       return Container(
                         padding: const EdgeInsets.all(20),
-                        decoration: AppTheme.glassCardDecoration(),
+                        decoration: AppTheme.glassCardDecorationOf(context),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

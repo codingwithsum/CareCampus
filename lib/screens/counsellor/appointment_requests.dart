@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/appointment_model.dart';
 import '../../services/services.dart';
 import '../../utils/theme.dart';
 import '../../utils/validators.dart';
+import '../../utils/app_alerts.dart';
 
 class AppointmentRequests extends StatefulWidget {
   const AppointmentRequests({super.key});
@@ -15,6 +17,7 @@ class AppointmentRequests extends StatefulWidget {
 class _AppointmentRequestsState extends State<AppointmentRequests> {
   List<Appointment> _appointments = [];
   bool _isLoading = true;
+  StreamSubscription<List<Appointment>>? _appointmentsSub;
 
   final _notesController = TextEditingController();
   final _preNoteController = TextEditingController();
@@ -32,14 +35,20 @@ class _AppointmentRequestsState extends State<AppointmentRequests> {
     try {
       final user = await Services.auth.getCurrentUser();
       if (user != null) {
-        final list = await Services.db.getAppointments(user.uid, 'counsellor');
-        setState(() {
-          _appointments = list;
-          _isLoading = false;
+        _appointmentsSub?.cancel();
+        _appointmentsSub = Services.db
+            .streamAppointments(user.uid, 'counsellor')
+            .listen((list) {
+          if (mounted) {
+            setState(() {
+              _appointments = list;
+              _isLoading = false;
+            });
+          }
         });
       }
     } catch (_) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -148,7 +157,7 @@ class _AppointmentRequestsState extends State<AppointmentRequests> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              backgroundColor: AppTheme.white,
+              backgroundColor: AppTheme.cardBg(context),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               title: Row(
@@ -451,12 +460,7 @@ class _AppointmentRequestsState extends State<AppointmentRequests> {
                   ),
                   onPressed: () {
                     if (_pickedDate == null || _pickedTime == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Please select both a date and a time.'),
-                          backgroundColor: AppTheme.alertWarning,
-                        ),
-                      );
+                      AppAlerts.warning(context, 'Please select both a date and a time.');
                       return;
                     }
                     Navigator.pop(context, true);
@@ -488,20 +492,15 @@ class _AppointmentRequestsState extends State<AppointmentRequests> {
       );
       _loadAppointments();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Session scheduled for $dateTimeText'),
-          backgroundColor: AppTheme.alertSuccess,
-        ),
-      );
+      AppAlerts.success(context, 'Session scheduled for $dateTimeText');
     }
   }
 
   Future<void> _rejectAppointment(Appointment appt) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.white,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: AppTheme.cardBg(dialogCtx),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
@@ -516,18 +515,18 @@ class _AppointmentRequestsState extends State<AppointmentRequests> {
             const SizedBox(width: 10),
             Text(
               'Decline Request',
-              style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 17, color: AppTheme.navyText),
+              style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 17, color: AppTheme.textPrimary(dialogCtx)),
             ),
           ],
         ),
         content: Text(
           'Are you sure you want to decline this appointment request for ${appt.studentPseudonym}?',
-          style: GoogleFonts.nunito(color: AppTheme.slateText, fontSize: 14),
+          style: GoogleFonts.nunito(color: AppTheme.textSecondary(dialogCtx), fontSize: 14),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Cancel', style: GoogleFonts.nunito(color: AppTheme.slateText, fontWeight: FontWeight.w700)),
+            onPressed: () => Navigator.pop(dialogCtx, false),
+            child: Text('Cancel', style: GoogleFonts.nunito(color: AppTheme.textSecondary(dialogCtx), fontWeight: FontWeight.w700)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -535,7 +534,7 @@ class _AppointmentRequestsState extends State<AppointmentRequests> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            onPressed: () => Navigator.pop(context, true), 
+            onPressed: () => Navigator.pop(dialogCtx, true), 
             child: Text('Decline', style: GoogleFonts.nunito(fontWeight: FontWeight.w800)),
           ),
         ],
@@ -545,6 +544,8 @@ class _AppointmentRequestsState extends State<AppointmentRequests> {
     if (confirmed == true) {
       await Services.db.updateAppointmentStatus(appt.id, 'rejected');
       _loadAppointments();
+      if (!mounted) return;
+      AppAlerts.info(context, 'Appointment request declined.');
     }
   }
 
@@ -553,9 +554,9 @@ class _AppointmentRequestsState extends State<AppointmentRequests> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogCtx) {
         return AlertDialog(
-          backgroundColor: AppTheme.white,
+          backgroundColor: AppTheme.cardBg(dialogCtx),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
@@ -571,7 +572,7 @@ class _AppointmentRequestsState extends State<AppointmentRequests> {
               Expanded(
                 child: Text(
                   'Complete Case Notes',
-                  style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 17, color: AppTheme.navyText),
+                  style: GoogleFonts.nunito(fontWeight: FontWeight.w800, fontSize: 17, color: AppTheme.textPrimary(dialogCtx)),
                 ),
               ),
             ],
@@ -628,11 +629,14 @@ class _AppointmentRequestsState extends State<AppointmentRequests> {
         sessionNotes: notes,
       );
       _loadAppointments();
+      if (!mounted) return;
+      AppAlerts.success(context, 'Session completed and notes recorded.');
     }
   }
 
   @override
   void dispose() {
+    _appointmentsSub?.cancel();
     _preNoteController.dispose();
     _notesController.dispose();
     super.dispose();
@@ -660,7 +664,7 @@ class _AppointmentRequestsState extends State<AppointmentRequests> {
         ),
         body: Container(
           height: double.infinity,
-          decoration: AppTheme.backgroundGradient,
+          decoration: AppTheme.backgroundGradientOf(context),
           child: _isLoading
               ? const Center(child: CircularProgressIndicator(color: AppTheme.tealPrimary))
               : TabBarView(
@@ -704,7 +708,7 @@ class _AppointmentRequestsState extends State<AppointmentRequests> {
         
         return Container(
           padding: const EdgeInsets.all(20),
-          decoration: AppTheme.glassCardDecoration(),
+          decoration: AppTheme.glassCardDecorationOf(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

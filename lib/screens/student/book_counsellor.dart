@@ -4,6 +4,7 @@ import '../../models/appointment_model.dart';
 import '../../services/services.dart';
 import '../../utils/theme.dart';
 import '../../utils/security.dart';
+import '../../utils/app_alerts.dart';
 
 class BookCounsellor extends StatefulWidget {
   final bool isAnonymous;
@@ -89,25 +90,16 @@ class _BookCounsellorState extends State<BookCounsellor> {
 
       if (!mounted) return;
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            widget.isAnonymous 
-                ? 'Confidential anonymous booking request submitted successfully.' 
-                : 'Appointment request submitted. Wait for counsellor confirmation.',
-          ),
-          backgroundColor: AppTheme.alertSuccess,
-        ),
+      AppAlerts.success(
+        context,
+        widget.isAnonymous 
+            ? 'Confidential anonymous booking request submitted successfully.' 
+            : 'Appointment request submitted. Wait for counsellor confirmation.',
       );
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to submit: ${e.toString()}'),
-          backgroundColor: AppTheme.alertSevere,
-        ),
-      );
+      AppAlerts.error(context, 'Failed to submit: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -123,7 +115,7 @@ class _BookCounsellorState extends State<BookCounsellor> {
       ),
       body: Container(
         height: double.infinity,
-        decoration: AppTheme.backgroundGradient,
+        decoration: AppTheme.backgroundGradientOf(context),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: AppTheme.tealPrimary))
             : SingleChildScrollView(
@@ -171,7 +163,7 @@ class _BookCounsellorState extends State<BookCounsellor> {
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(24),
-                        decoration: AppTheme.glassCardDecoration(),
+                        decoration: AppTheme.glassCardDecorationOf(context),
                         child: const Text(
                           'No counsellors are registered in the portal at the moment. Please check back later.',
                           style: TextStyle(color: AppTheme.textLow),
@@ -181,7 +173,7 @@ class _BookCounsellorState extends State<BookCounsellor> {
                     ] else ...[
                       Container(
                         padding: const EdgeInsets.all(24),
-                        decoration: AppTheme.glassCardDecoration(),
+                        decoration: AppTheme.glassCardDecorationOf(context),
                         child: Form(
                           key: _formKey,
                           child: Column(

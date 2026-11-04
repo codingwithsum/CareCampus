@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../services/services.dart';
 import '../../utils/theme.dart';
 import '../../utils/validators.dart';
+import '../../utils/app_alerts.dart';
 import '../student/student_dashboard.dart';
 import '../counsellor/counsellor_dashboard.dart';
 import '../admin/admin_dashboard.dart';
@@ -53,6 +54,18 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Future<void> _handleLogin() async {
+    final emailError = Validators.validateEmail(_usernameController.text);
+    if (emailError != null) {
+      _formKey.currentState?.validate();
+      AppAlerts.error(context, emailError);
+      return;
+    }
+    final passError = Validators.validatePassword(_passwordController.text);
+    if (passError != null) {
+      _formKey.currentState?.validate();
+      AppAlerts.error(context, passError);
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
@@ -85,19 +98,22 @@ class _LoginScreenState extends State<LoginScreen>
         setState(() {
           _errorMessage = 'Invalid username or password. Please try again.';
         });
+        if (mounted) {
+          AppAlerts.error(context, 'Invalid username or password. Please try again.');
+        }
       }
     } catch (e) {
       final msg = e.toString();
+      final err = (msg.contains('permission-denied') ||
+              msg.contains('PERMISSION_DENIED'))
+          ? 'Sign-in failed: Firestore security rules are blocking access.'
+          : 'An error occurred: $msg';
       setState(() {
-        if (msg.contains('permission-denied') ||
-            msg.contains('PERMISSION_DENIED')) {
-          _errorMessage =
-              'Sign-in failed: Firestore security rules are blocking access. '
-              'Please update your Firestore rules.';
-        } else {
-          _errorMessage = 'An error occurred: $msg';
-        }
+        _errorMessage = err;
       });
+      if (mounted) {
+        AppAlerts.error(context, err);
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -107,6 +123,7 @@ class _LoginScreenState extends State<LoginScreen>
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.cardBg(ctx),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
         ),
@@ -131,7 +148,7 @@ class _LoginScreenState extends State<LoginScreen>
                 style: GoogleFonts.nunito(
                   fontWeight: FontWeight.w800,
                   fontSize: 18,
-                  color: AppTheme.navyText,
+                  color: AppTheme.textPrimary(ctx),
                 ),
               ),
             ),
@@ -145,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen>
               'Please contact your Campus Administrator to reset your password or recover your account.',
               style: GoogleFonts.nunito(
                 fontSize: 14,
-                color: AppTheme.slateText,
+                color: AppTheme.textSecondary(ctx),
                 height: 1.45,
               ),
             ),
@@ -153,9 +170,9 @@ class _LoginScreenState extends State<LoginScreen>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppTheme.cloudBlue,
+                color: AppTheme.cardBgAlt(ctx),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.iceBlue),
+                border: Border.all(color: AppTheme.borderColor(ctx)),
               ),
               child: Row(
                 children: [
@@ -171,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen>
                       style: GoogleFonts.nunito(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.navyText,
+                        color: AppTheme.textPrimary(ctx),
                       ),
                     ),
                   ),
@@ -200,9 +217,10 @@ class _LoginScreenState extends State<LoginScreen>
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 700;
+    final isDark = AppTheme.isDark(context);
 
     return Scaffold(
-      backgroundColor: AppTheme.skyWhite,
+      backgroundColor: AppTheme.scaffoldBg(context),
       body: Stack(
         children: [
           // ── Watercolor background blobs ──────────────────────────────
@@ -210,7 +228,7 @@ class _LoginScreenState extends State<LoginScreen>
             top: -80,
             left: -60,
             child: _WatercolorBlob(
-              color: const Color(0xFF2AA8C4).withValues(alpha: 0.12),
+              color: const Color(0xFF2AA8C4).withValues(alpha: isDark ? 0.05 : 0.12),
               size: 280,
             ),
           ),
@@ -218,7 +236,7 @@ class _LoginScreenState extends State<LoginScreen>
             top: -40,
             right: -80,
             child: _WatercolorBlob(
-              color: const Color(0xFF52C17C).withValues(alpha: 0.09),
+              color: const Color(0xFF52C17C).withValues(alpha: isDark ? 0.04 : 0.09),
               size: 240,
             ),
           ),
@@ -226,7 +244,7 @@ class _LoginScreenState extends State<LoginScreen>
             bottom: isDesktop ? 40 : 200,
             left: -60,
             child: _WatercolorBlob(
-              color: const Color(0xFF2AA8C4).withValues(alpha: 0.08),
+              color: const Color(0xFF2AA8C4).withValues(alpha: isDark ? 0.04 : 0.08),
               size: 200,
             ),
           ),
@@ -276,7 +294,7 @@ class _LoginScreenState extends State<LoginScreen>
                       Text(
                         'Your safe space for mental wellness',
                         style: GoogleFonts.nunito(
-                          color: AppTheme.mutedText,
+                          color: AppTheme.textMuted(context),
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
@@ -291,21 +309,24 @@ class _LoginScreenState extends State<LoginScreen>
                           vertical: 32,
                         ),
                         decoration: BoxDecoration(
-                          color: AppTheme.white,
+                          color: AppTheme.cardBg(context),
                           borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(0xFF2AA8C4)
-                                  .withValues(alpha: 0.10),
-                              blurRadius: 40,
-                              offset: const Offset(0, 12),
-                            ),
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                          border: isDark ? Border.all(color: AppTheme.darkBorder) : null,
+                          boxShadow: isDark
+                              ? []
+                              : [
+                                  BoxShadow(
+                                    color: const Color(0xFF2AA8C4)
+                                        .withValues(alpha: 0.10),
+                                    blurRadius: 40,
+                                    offset: const Offset(0, 12),
+                                  ),
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.04),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
                         ),
                         child: Form(
                           key: _formKey,
@@ -352,12 +373,13 @@ class _LoginScreenState extends State<LoginScreen>
                               TextFormField(
                                 controller: _usernameController,
                                 keyboardType: TextInputType.emailAddress,
+                                autovalidateMode: AutovalidateMode.onUserInteraction,
                                 style: GoogleFonts.nunito(
-                                  color: AppTheme.navyText,
+                                  color: AppTheme.textPrimary(context),
                                   fontWeight: FontWeight.w600,
                                 ),
                                 decoration: InputDecoration(
-                                  hintText: 'Email',
+                                  hintText: 'Email (e.g. user@carecampus.org)',
                                   prefixIcon: const Icon(
                                     Icons.mail_outline_rounded,
                                     color: AppTheme.mutedText,
@@ -373,7 +395,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 controller: _passwordController,
                                 obscureText: _obscurePassword,
                                 style: GoogleFonts.nunito(
-                                  color: AppTheme.navyText,
+                                  color: AppTheme.textPrimary(context),
                                   fontWeight: FontWeight.w600,
                                 ),
                                 decoration: InputDecoration(
@@ -413,7 +435,7 @@ class _LoginScreenState extends State<LoginScreen>
                                   child: Text(
                                     'Forgot Password?',
                                     style: GoogleFonts.nunito(
-                                      color: AppTheme.slateText,
+                                      color: AppTheme.textSecondary(context),
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                     ),

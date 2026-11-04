@@ -50,19 +50,19 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyD0a7TlthZ7dl06OjBP3_15_PVtvdk9UDk',
-    appId: '1:525663526234:web:96c75c85ac14bf378c6763',
-    messagingSenderId: '525663526234',
-    projectId: 'carecampus-app',
-    authDomain: 'carecampus-app.firebaseapp.com',
-    storageBucket: 'carecampus-app.firebasestorage.app',
+    apiKey: String.fromEnvironment('FIREBASE_WEB_API_KEY'),
+    appId: String.fromEnvironment('FIREBASE_WEB_APP_ID'),
+    messagingSenderId: String.fromEnvironment('FIREBASE_WEB_MESSAGING_SENDER_ID'),
+    projectId: String.fromEnvironment('FIREBASE_WEB_PROJECT_ID'),
+    authDomain: String.fromEnvironment('FIREBASE_WEB_AUTH_DOMAIN'),
+    storageBucket: String.fromEnvironment('FIREBASE_WEB_STORAGE_BUCKET'),
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBlTvsPh-TbRYE4GtOokTuVfv4ZaJZn0BQ',
-    appId: '1:525663526234:android:9548bef5639625d98c6763',
-    messagingSenderId: '525663526234',
-    projectId: 'carecampus-app',
-    storageBucket: 'carecampus-app.firebasestorage.app',
+    apiKey: String.fromEnvironment('FIREBASE_ANDROID_API_KEY'),
+    appId: String.fromEnvironment('FIREBASE_ANDROID_APP_ID'),
+    messagingSenderId: String.fromEnvironment('FIREBASE_ANDROID_MESSAGING_SENDER_ID'),
+    projectId: String.fromEnvironment('FIREBASE_ANDROID_PROJECT_ID'),
+    storageBucket: String.fromEnvironment('FIREBASE_ANDROID_STORAGE_BUCKET'),
   );
 }

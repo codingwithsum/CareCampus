@@ -1,16 +1,36 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:carecampus/utils/validators.dart';
 import 'package:carecampus/utils/security.dart';
+import 'package:carecampus/utils/url_helper.dart';
 import 'package:carecampus/models/appointment_model.dart';
 
 void main() {
   group('Security Validations Tests', () {
     test('Email format checking', () {
       expect(Validators.validateEmail(''), isNotNull);
+      expect(Validators.validateEmail('   '), isNotNull);
       expect(Validators.validateEmail('invalid-email'), isNotNull);
       expect(Validators.validateEmail('student@carecampus.org'), isNull);
-      // Mock shortcuts are allowed
+      // Mock shortcuts are allowed in non-strict mode
       expect(Validators.validateEmail('student'), isNull);
+      expect(Validators.validateEmail('admin'), isNull);
+      expect(Validators.validateEmail('counsellor'), isNull);
+
+      // Strict mode rejects mock shortcuts (used during user creation in admin)
+      expect(Validators.validateEmail('student', strictEmail: true), isNotNull);
+      expect(Validators.validateEmail('admin', strictEmail: true), isNotNull);
+      expect(Validators.validateEmail('student@carecampus.org', strictEmail: true), isNull);
+
+      // Enhanced formatting checks
+      expect(Validators.validateEmail('user@'), contains('domain after "@" cannot be empty'));
+      expect(Validators.validateEmail('@domain.com'), contains('username before "@" cannot be empty'));
+      expect(Validators.validateEmail('user with space@domain.com'), contains('cannot contain spaces'));
+      expect(Validators.validateEmail('.user@domain.com'), contains('cannot start or end with a dot'));
+      expect(Validators.validateEmail('user..test@domain.com'), contains('cannot contain consecutive dots'));
+      expect(Validators.validateEmail('user@domain'), contains('must include a valid extension'));
+      expect(Validators.validateEmail('user@domain.c'), contains('extension must be at least 2 letters'));
+      expect(Validators.validateEmail('user@domain.123'), contains('extension can only contain letters'));
+      expect(Validators.validateEmail('student.council@campus.edu.in'), isNull);
     });
 
     test('Password Strength Enforcement', () {
@@ -33,6 +53,22 @@ void main() {
       final clean = Validators.sanitizeText(input);
       expect(clean, equals('Hello World'));
       expect(clean, isNot(contains('<script>')));
+    });
+
+    test('UrlHelper Unwraps Google Redirects and Extracts YouTube ID', () {
+      // Direct Google search redirect
+      final googleUrl = 'https://www.google.com/url?q=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3DdQw4w9WgXcQ&sa=U&ved=2ahUKEwj';
+      final unwrapped = UrlHelper.unwrapUrl(googleUrl);
+      expect(unwrapped, startsWith('https://www.youtube.com/watch?v=dQw4w9WgXcQ'));
+
+      // Extract YouTube Video IDs directly
+      expect(UrlHelper.getYouTubeVideoId('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), equals('dQw4w9WgXcQ'));
+      expect(UrlHelper.getYouTubeVideoId('https://youtu.be/dQw4w9WgXcQ'), equals('dQw4w9WgXcQ'));
+      expect(UrlHelper.getYouTubeVideoId('https://www.youtube.com/shorts/dQw4w9WgXcQ'), equals('dQw4w9WgXcQ'));
+      expect(UrlHelper.getYouTubeVideoId(googleUrl), equals('dQw4w9WgXcQ'));
+
+      // Non-YouTube URL
+      expect(UrlHelper.getYouTubeVideoId('https://pdfobject.com/pdf/sample.pdf'), isNull);
     });
   });
 

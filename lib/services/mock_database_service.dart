@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
@@ -22,6 +23,21 @@ class MockDatabaseService implements DatabaseService {
   final List<ChatbotSession> _chatbotSessions = [];
   final List<AssessmentReport> _assessmentReports = [];
   final Map<String, List<String>> _warnings = {}; // studentId -> list of warning messages
+
+  final StreamController<void> _appointmentsController = StreamController<void>.broadcast();
+  final StreamController<void> _usersController = StreamController<void>.broadcast();
+
+  void _notifyAppointmentsChanged() {
+    if (!_appointmentsController.isClosed) {
+      _appointmentsController.add(null);
+    }
+  }
+
+  void _notifyUsersChanged() {
+    if (!_usersController.isClosed) {
+      _usersController.add(null);
+    }
+  }
 
   bool _isInitialized = false;
 
@@ -320,6 +336,7 @@ class MockDatabaseService implements DatabaseService {
     _users.add(user);
     _passwords[user.username] = password;
     await _saveUsersState();
+    _notifyUsersChanged();
     return user;
   }
 
@@ -331,6 +348,7 @@ class MockDatabaseService implements DatabaseService {
     _users.removeWhere((u) => u.uid == uid);
     _passwords.remove(user.username);
     await _saveUsersState();
+    _notifyUsersChanged();
   }
 
   @override
@@ -342,19 +360,42 @@ class MockDatabaseService implements DatabaseService {
   @override
   Future<List<AppUser>> getAllUsers() async {
     await init();
-    return List.from(_users);
+    final list = List<AppUser>.from(_users);
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
+  @override
+  Stream<List<AppUser>> streamAllUsers() async* {
+    await init();
+    yield await getAllUsers();
+    yield* _usersController.stream.asyncMap((_) async {
+      return await getAllUsers();
+    });
   }
 
   @override
   Future<List<Appointment>> getAppointments(String userId, String role) async {
     await init();
+    List<Appointment> list;
     if (role == 'admin') {
-      return List.from(_appointments);
+      list = List.from(_appointments);
     } else if (role == 'counsellor') {
-      return _appointments.where((a) => a.counsellorId == userId).toList();
+      list = _appointments.where((a) => a.counsellorId == userId).toList();
     } else {
-      return _appointments.where((a) => a.studentId == userId).toList();
+      list = _appointments.where((a) => a.studentId == userId).toList();
     }
+    list.sort((a, b) => b.bookingDate.compareTo(a.bookingDate));
+    return list;
+  }
+
+  @override
+  Stream<List<Appointment>> streamAppointments(String userId, String role) async* {
+    await init();
+    yield await getAppointments(userId, role);
+    yield* _appointmentsController.stream.asyncMap((_) async {
+      return await getAppointments(userId, role);
+    });
   }
 
   @override
@@ -362,6 +403,7 @@ class MockDatabaseService implements DatabaseService {
     await init();
     _appointments.add(appointment);
     await _saveAppointmentsState();
+    _notifyAppointmentsChanged();
   }
 
   @override
@@ -380,6 +422,7 @@ class MockDatabaseService implements DatabaseService {
         sessionNotes: sessionNotes,
       );
       await _saveAppointmentsState();
+      _notifyAppointmentsChanged();
     }
   }
 

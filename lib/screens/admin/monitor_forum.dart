@@ -3,6 +3,7 @@ import '../../models/post_model.dart';
 import '../../services/services.dart';
 import '../../utils/theme.dart';
 import '../../utils/validators.dart';
+import '../../utils/app_alerts.dart';
 
 class MonitorForum extends StatefulWidget {
   const MonitorForum({super.key});
@@ -39,17 +40,17 @@ class _MonitorForumState extends State<MonitorForum> {
   Future<void> _deletePost(String id) async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.white,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: AppTheme.cardBg(dialogCtx),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Remove Post', style: TextStyle(color: AppTheme.navyText, fontWeight: FontWeight.w800)),
-        content: const Text(
+        title: Text('Remove Post', style: TextStyle(color: AppTheme.textPrimary(dialogCtx), fontWeight: FontWeight.w800)),
+        content: Text(
           'Are you sure you want to permanently remove this post? This action cannot be undone.',
-          style: TextStyle(color: AppTheme.slateText),
+          style: TextStyle(color: AppTheme.textSecondary(dialogCtx)),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogCtx, false),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
@@ -57,7 +58,7 @@ class _MonitorForumState extends State<MonitorForum> {
               backgroundColor: AppTheme.alertSevere,
               foregroundColor: Colors.white,
             ),
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogCtx, true),
             child: const Text('Remove'),
           ),
         ],
@@ -68,12 +69,7 @@ class _MonitorForumState extends State<MonitorForum> {
       await Services.db.removeForumPost(id);
       _loadAllPosts();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Post removed successfully.'),
-          backgroundColor: AppTheme.alertSevere,
-        ),
-      );
+      AppAlerts.info(context, 'Post removed successfully.');
     }
   }
 
@@ -82,19 +78,20 @@ class _MonitorForumState extends State<MonitorForum> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogCtx) {
         return AlertDialog(
-          backgroundColor: AppTheme.white,
+          backgroundColor: AppTheme.cardBg(dialogCtx),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(
             'Issue Warning to student ($pseudonym)',
-            style: const TextStyle(color: AppTheme.navyText, fontWeight: FontWeight.w800, fontSize: 16),
+            style: TextStyle(color: AppTheme.textPrimary(dialogCtx), fontWeight: FontWeight.w800, fontSize: 16),
           ),
           content: Form(
             key: _formKey,
             child: TextFormField(
               controller: _warningController,
               maxLines: 3,
+              style: TextStyle(color: AppTheme.textPrimary(dialogCtx)),
               decoration: const InputDecoration(
                 labelText: 'Warning Message',
                 hintText: 'Enter reason for warning (e.g. inappropriate language)...',
@@ -104,7 +101,7 @@ class _MonitorForumState extends State<MonitorForum> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.pop(dialogCtx, false),
               child: const Text('Cancel'),
             ),
             ElevatedButton(
@@ -128,12 +125,7 @@ class _MonitorForumState extends State<MonitorForum> {
       final warningMsg = Validators.sanitizeText(_warningController.text);
       await Services.db.warnUser(studentId, warningMsg);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Administrative warning issued to student ($pseudonym).'),
-          backgroundColor: AppTheme.alertWarning,
-        ),
-      );
+      AppAlerts.warning(context, 'Administrative warning issued to student ($pseudonym).');
     }
   }
 
@@ -151,7 +143,7 @@ class _MonitorForumState extends State<MonitorForum> {
       ),
       body: Container(
         height: double.infinity,
-        decoration: AppTheme.backgroundGradient,
+        decoration: AppTheme.backgroundGradientOf(context),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: AppTheme.tealPrimary))
             : _allPosts.isEmpty
@@ -162,12 +154,12 @@ class _MonitorForumState extends State<MonitorForum> {
                         Icon(
                           Icons.forum_outlined,
                           size: 64,
-                          color: AppTheme.textLow.withValues(alpha: 0.5),
+                          color: AppTheme.textMuted(context).withValues(alpha: 0.5),
                         ),
                         const SizedBox(height: 16),
-                        const Text(
+                        Text(
                           'No posts in the forum yet.',
-                          style: TextStyle(color: AppTheme.textLow),
+                          style: TextStyle(color: AppTheme.textMuted(context)),
                         ),
                       ],
                     ),
@@ -180,7 +172,7 @@ class _MonitorForumState extends State<MonitorForum> {
                       final post = _allPosts[index];
                       return Container(
                         padding: const EdgeInsets.all(16),
-                        decoration: AppTheme.glassCardDecoration(),
+                        decoration: AppTheme.glassCardDecorationOf(context),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

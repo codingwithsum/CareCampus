@@ -10,12 +10,8 @@ class AppConfig {
   static const String appName = 'CareCampus';
 
   /// Free-Tier Gemini API Configuration
-  /// Security Best Practice:
-  /// 1. Provide at compile-time via:
-  ///    flutter run --dart-define=GEMINI_API_KEY=your_key_here
-  /// 2. Or configure via in-app Settings in the Chatbot screen (persisted securely in local storage).
-  ///
-  /// Never hardcode personal production API keys into version control.
+  /// Pass via --dart-define=GEMINI_API_KEY=your_key or users can enter it in-app.
+  /// See .env.example for the required environment variables.
   static const String geminiApiKey = String.fromEnvironment(
     'GEMINI_API_KEY',
     defaultValue: '',

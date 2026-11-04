@@ -27,12 +27,28 @@ class FirebaseDatabaseService implements DatabaseService {
   @override
   Future<List<AppUser>> getAllUsers() async {
     final snap = await _db.collection('users').get();
-    return snap.docs.map((doc) {
+    final list = snap.docs.map((doc) {
       final data = doc.data();
       final rawUid = data['uid'];
       final effectiveUid = (rawUid is String && rawUid.isNotEmpty) ? rawUid : doc.id;
       return AppUser.fromMap({...data, 'uid': effectiveUid});
     }).toList();
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
+  @override
+  Stream<List<AppUser>> streamAllUsers() {
+    return _db.collection('users').snapshots().map((snap) {
+      final list = snap.docs.map((doc) {
+        final data = doc.data();
+        final rawUid = data['uid'];
+        final effectiveUid = (rawUid is String && rawUid.isNotEmpty) ? rawUid : doc.id;
+        return AppUser.fromMap({...data, 'uid': effectiveUid});
+      }).toList();
+      list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return list;
+    });
   }
 
   @override
@@ -51,6 +67,23 @@ class FirebaseDatabaseService implements DatabaseService {
     // Sort in Dart to avoid needing a Firestore composite index
     results.sort((a, b) => b.bookingDate.compareTo(a.bookingDate));
     return results;
+  }
+
+  @override
+  Stream<List<Appointment>> streamAppointments(String userId, String role) {
+    Query query = _db.collection('appointments');
+    if (role == 'counsellor') {
+      query = query.where('counsellorId', isEqualTo: userId);
+    } else if (role == 'student') {
+      query = query.where('studentId', isEqualTo: userId);
+    }
+    return query.snapshots().map((snap) {
+      final results = snap.docs
+          .map((doc) => Appointment.fromMap(doc.data() as Map<String, dynamic>))
+          .toList();
+      results.sort((a, b) => b.bookingDate.compareTo(a.bookingDate));
+      return results;
+    });
   }
 
   @override

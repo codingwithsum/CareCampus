@@ -4,7 +4,7 @@ class Resource {
   final String id;
   final String title;
   final String description;
-  final String category; // 'Video' | 'Audio' | 'PDF' | 'Guide'
+  final String category; // 'Video' | 'Audio' | 'PDF'
   final String url; // link to resource
   final String uploadedBy; // UID of admin or counsellor
   final String uploadedByName; // display name of admin or counsellor
@@ -48,7 +48,7 @@ class Resource {
       id: map['id'] ?? '',
       title: map['title'] ?? '',
       description: map['description'] ?? '',
-      category: map['category'] ?? 'Guide',
+      category: map['category'] == 'Guide' ? 'PDF' : (map['category'] ?? 'PDF'),
       url: map['url'] ?? '',
       uploadedBy: map['uploadedBy'] ?? '',
       uploadedByName: map['uploadedByName'] ?? '',

@@ -4,6 +4,7 @@ import '../../services/services.dart';
 import '../../utils/theme.dart';
 import '../../utils/security.dart';
 import '../../utils/validators.dart';
+import '../../utils/app_alerts.dart';
 
 class PeerForum extends StatefulWidget {
   const PeerForum({super.key});
@@ -40,6 +41,18 @@ class _PeerForumState extends State<PeerForum> {
   }
 
   Future<void> _submitPost() async {
+    final titleErr = Validators.validateRequired(_titleController.text, 'Title', maxLen: 80);
+    if (titleErr != null) {
+      _formKey.currentState?.validate();
+      AppAlerts.error(context, titleErr);
+      return;
+    }
+    final contentErr = Validators.validateRequired(_contentController.text, 'Post body', maxLen: 1000);
+    if (contentErr != null) {
+      _formKey.currentState?.validate();
+      AppAlerts.error(context, contentErr);
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSubmitting = true);
@@ -70,22 +83,12 @@ class _PeerForumState extends State<PeerForum> {
       _titleController.clear();
       _contentController.clear();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Post published successfully! It is now visible to the community.'),
-          backgroundColor: AppTheme.alertSuccess,
-        ),
-      );
+      AppAlerts.success(context, 'Post published successfully! It is now visible to the community.');
       Navigator.of(context).pop();
       _loadForumPosts();
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to submit post: ${e.toString()}'),
-          backgroundColor: AppTheme.alertSevere,
-        ),
-      );
+      AppAlerts.error(context, 'Failed to submit post: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
@@ -97,7 +100,7 @@ class _PeerForumState extends State<PeerForum> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.white,
+      backgroundColor: AppTheme.cardBg(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -193,7 +196,7 @@ class _PeerForumState extends State<PeerForum> {
       ),
       body: Container(
         height: double.infinity,
-        decoration: AppTheme.backgroundGradient,
+        decoration: AppTheme.backgroundGradientOf(context),
         child: _isLoading
             ? const Center(child: CircularProgressIndicator(color: AppTheme.tealPrimary))
             : Column(
@@ -202,7 +205,7 @@ class _PeerForumState extends State<PeerForum> {
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    color: AppTheme.slateCard.withValues(alpha: 0.2),
+                    color: AppTheme.cardBgAlt(context),
                     child: Row(
                       children: [
                         const Icon(Icons.shield_rounded, color: AppTheme.mintAccent),
@@ -210,7 +213,7 @@ class _PeerForumState extends State<PeerForum> {
                         Expanded(
                           child: Text(
                             'Your privacy matters: Student identities are replaced with pseudonyms. Posts publish immediately. Admins can remove inappropriate content.',
-                            style: TextStyle(color: AppTheme.textMedium, fontSize: 12),
+                            style: TextStyle(color: AppTheme.textSecondary(context), fontSize: 12),
                           ),
                         )
                       ],
@@ -226,16 +229,16 @@ class _PeerForumState extends State<PeerForum> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.forum_outlined, size: 64, color: AppTheme.textLow.withValues(alpha: 0.5)),
+                                  Icon(Icons.forum_outlined, size: 64, color: AppTheme.textMuted(context).withValues(alpha: 0.5)),
                                   const SizedBox(height: 16),
-                                  const Text(
+                                  Text(
                                     'No posts have been published yet.',
-                                    style: TextStyle(color: AppTheme.textLow),
+                                    style: TextStyle(color: AppTheme.textMuted(context)),
                                   ),
                                   const SizedBox(height: 8),
-                                  const Text(
+                                  Text(
                                     'Be the first to share your thoughts by tapping the button below!',
-                                    style: TextStyle(color: AppTheme.textLow, fontSize: 12),
+                                    style: TextStyle(color: AppTheme.textMuted(context), fontSize: 12),
                                     textAlign: TextAlign.center,
                                   ),
                                 ],
@@ -250,7 +253,7 @@ class _PeerForumState extends State<PeerForum> {
                               final post = _approvedPosts[index];
                               return Container(
                                 padding: const EdgeInsets.all(20),
-                                decoration: AppTheme.glassCardDecoration(),
+                                decoration: AppTheme.glassCardDecorationOf(context),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
