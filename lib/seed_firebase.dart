@@ -129,6 +129,22 @@ Future<void> main() async {
   });
   print('✅ Seeded chatbot sessions');
 
+  // --- Seed Gemini API Key (Remote Config) ---
+  // This allows the APK to auto-fetch the key without hardcoding it in source.
+  // The key is stored securely in Firestore, not in the GitHub codebase.
+  const geminiKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
+  if (geminiKey.isNotEmpty) {
+    await db.collection('app_config').doc('gemini').set({
+      'apiKey': geminiKey,
+      'model': 'gemini-3.5-flash-lite',
+      'updatedAt': DateTime.now().millisecondsSinceEpoch,
+    });
+    print('✅ Seeded Gemini API key to Firestore remote config');
+  } else {
+    print('⚠️  No GEMINI_API_KEY provided via --dart-define. Skipping remote config seed.');
+    print('   To seed: flutter run -t lib/seed_firebase.dart -d chrome --dart-define=GEMINI_API_KEY=your_key');
+  }
+
   // --- Seed Assessment ---
   await db.collection('assessments').doc('asmt-seed-1').set({
     'id': 'asmt-seed-1',
